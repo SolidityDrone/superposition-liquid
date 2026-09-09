@@ -178,6 +178,19 @@ contract ChainlinkGuardE2ETest is Test {
         assertEq(usdc.balanceOf(maker), 0);
     }
 
+    /// quote() is the resolver's success oracle: reverts with the same guard error
+    function test_guardRevertsOffMarketQuote() public {
+        _ship(_marketProgram(), 100e18, 250_000e6, 105e18, 265_000e6);
+
+        vm.prank(taker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ChainlinkGuardOpcode.PriceDeviationExceeded.selector, 398411136388084, 997e6, 5e14
+            )
+        );
+        router.quote(lastOrder, address(usdc), address(weth), 1000e6, _takerTraits());
+    }
+
     /// AMM price = 2500 USDC/WETH, feed says 2000 -> 25% off -> guard reverts
     function test_guardRevertsOffMarketFill() public {
         _ship(_marketProgram(), 100e18, 250_000e6, 105e18, 265_000e6);

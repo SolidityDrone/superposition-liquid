@@ -20,12 +20,12 @@ const NODES = [
 ];
 
 // one STRAIGHT lane per directed edge, generously spaced on the pentagon
-const LANES = [
-  { d: "M 725 100 L 552 458", stage: 1, bx: 640, by: 285 },
-  { d: "M 425 468 L 228 100", stage: 2, bx: 320, by: 290 },
-  { d: "M 160 90 L 105 318", stage: 3, bx: 132, by: 204 },
-  { d: "M 122 86 L 60 300", stage: 4, bx: 88, by: 192 },
-  { d: "M 228 50 L 722 58", stage: 4, bx: 475, by: 24 },
+const LANES: { n: number; d: string; stage: number; bx: number; by: number }[] = [
+  { n: 1, d: "M 725 100 L 552 458", stage: 1, bx: 638.5, by: 279 },
+  { n: 2, d: "M 425 468 L 228 100", stage: 2, bx: 326.5, by: 284 },
+  { n: 3, d: "M 160 90 L 105 318", stage: 3, bx: 132.5, by: 204 },
+  { n: 4, d: "M 122 86 L 60 300", stage: 4, bx: 91, by: 193 },
+  { n: 5, d: "M 228 50 L 668 57", stage: 4, bx: 475, by: 28 },
 ];
 
 const LEGEND = [
@@ -55,6 +55,7 @@ export default function FillDiagram() {
     if (!packet || !core || !sym) return;
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const speedScale = reduced ? 1.9 : 1; // reduced motion: slower walk, never frozen
     const laneLens = LANES.map((l, i) => {
       const el = laneRefs.current[i];
       return el ? el.getTotalLength() : 500;
@@ -63,7 +64,7 @@ export default function FillDiagram() {
     type Slot = { kind: "move" | "pause"; lane: number; dur: number };
     const timeline: Slot[] = [];
     LANES.forEach((l, i) => {
-      timeline.push({ kind: "move", lane: i, dur: reduced ? MOVE_MS * 2.4 : MOVE_MS });
+      timeline.push({ kind: "move", lane: i, dur: MOVE_MS * speedScale });
       timeline.push({
         kind: "pause",
         lane: i,
@@ -127,7 +128,7 @@ export default function FillDiagram() {
         }
         if (slot.kind === "pause" && slot.lane === LANES.length - 1 && currentSym !== "$") {
           currentSym = "$";
-          setCoin(760, 70, "$");
+          setCoin(760, 92, "$");
         }
       } catch (err) {
         if (!warned) {
@@ -188,13 +189,13 @@ export default function FillDiagram() {
                 fontWeight="700"
                 fill={active === l.stage ? "#4cc2ff" : "#63788c"}
               >
-                {l.stage}
+                {l.n}
               </text>
             </g>
           ))}
 
           {/* the coin packet — badge-style, carries the asset symbol */}
-          <g ref={packetRef} transform="translate(760 70)">
+          <g ref={packetRef} transform="translate(725 108)">
             <circle r="13" fill="#0c1826" stroke="#4cc2ff" strokeWidth="1.6" />
             <text
               ref={symRef}

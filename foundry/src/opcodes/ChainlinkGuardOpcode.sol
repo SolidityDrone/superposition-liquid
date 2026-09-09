@@ -12,13 +12,15 @@ import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol"
 uint256 constant CHAINLINK_GUARD_XD = 36;
 
 library GuardArgsBuilder {
-    /// @dev Builds opcode args: feedIn + feedOut + maxDeviationBps + maxStalenessSeconds (48 bytes)
-    function build(address feedIn, address feedOut, uint32 maxDeviationBps, uint32 maxStalenessSeconds)
+    /// @dev Builds opcode args: token0 + token1 + feed0 + feed1 + maxDeviationBps + maxStaleness (88 bytes).
+    ///      Feeds are USD-quoted; they are mapped to tokenIn/tokenOut by address, so the guard
+    ///      works for both swap directions of the same strategy.
+    function build(address token0, address token1, address feed0, address feed1, uint32 maxDeviationBps, uint32 maxStalenessSeconds)
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(feedIn, feedOut, maxDeviationBps, maxStalenessSeconds);
+        return abi.encodePacked(token0, token1, feed0, feed1, maxDeviationBps, maxStalenessSeconds);
     }
 }
 
@@ -33,19 +35,26 @@ contract ChainlinkGuardOpcode {
     error StalePrice(address feed);
     error PriceDeviationExceeded(uint256 implied, uint256 amountIn, uint256 ref);
 
-    /// @param args.feedIn             | 20 bytes | Chainlink feed of tokenIn (USD-quoted)
-    /// @param args.feedOut            | 20 bytes | Chainlink feed of tokenOut (USD-quoted)
+    /// @param args.token0             | 20 bytes
+    /// @param args.token1             | 20 bytes
+    /// @param args.feed0              | 20 bytes | Chainlink feed of token0 (USD-quoted)
+    /// @param args.feed1              | 20 bytes | Chainlink feed of token1 (USD-quoted)
     /// @param args.maxDeviationBps    |  4 bytes | uint32, e.g. 200 = 2%
     /// @param args.maxStalenessSeconds|  4 bytes | uint32, e.g. 3600
     function _chainlinkGuardXD(Context memory ctx, bytes calldata args) internal view {
-        if (args.length < 48) revert GuardArgsTooShort();
+        if (args.length < 88) revert GuardArgsTooShort();
 
-        address feedIn = address(bytes20(args.slice(0, 20)));
-        address feedOut = address(bytes20(args.slice(20, 40)));
-        uint32 maxDeviationBps = uint32(bytes4(args.slice(40, 44)));
-        uint32 maxStalenessSeconds = uint32(bytes4(args.slice(44, 48)));
+        address token0 = address(bytes20(args.slice(0, 20)));
+        address token1 = address(bytes20(args.slice(20, 40)));
+        address feed0 = address(bytes20(args.slice(40, 60)));
+        address feed1 = address(bytes20(args.slice(60, 80)));
+        uint32 maxDeviationBps = uint32(bytes4(args.slice(80, 84)));
+        uint32 maxStalenessSeconds = uint32(bytes4(args.slice(84, 88)));
 
         if (ctx.swap.amountIn == 0 || ctx.swap.amountOut == 0) return;
+
+        address feedIn = ctx.query.tokenIn == token0 ? feed0 : feed1;
+        address feedOut = ctx.query.tokenIn == token0 ? feed1 : feed0;
 
         _checkFresh(feedIn, maxStalenessSeconds);
         _checkFresh(feedOut, maxStalenessSeconds);

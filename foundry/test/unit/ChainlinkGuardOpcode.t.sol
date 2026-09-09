@@ -19,6 +19,7 @@ contract ChainlinkGuardOpcodeTest is ChainlinkGuardOpcode, Test {
     address internal taker;
 
     function setUp() public {
+        vm.warp(1_700_000_000); // realistic timestamp, avoids underflow on staleness checks
         weth = new MockToken("WETH", 18);
         usdc = new MockToken("USDC", 6);
         ethFeed = new MockAggregator();
@@ -34,7 +35,7 @@ contract ChainlinkGuardOpcodeTest is ChainlinkGuardOpcode, Test {
     }
 
     function _argsFor(uint32 maxDeviationBps, uint32 maxStaleness) internal view returns (bytes memory) {
-        return abi.encodePacked(address(ethFeed), address(usdcFeed), maxDeviationBps, maxStaleness);
+        return abi.encodePacked(address(weth), address(usdc), address(ethFeed), address(usdcFeed), maxDeviationBps, maxStaleness);
     }
 
     function _ctx(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut)
@@ -107,9 +108,9 @@ contract ChainlinkGuardOpcodeTest is ChainlinkGuardOpcode, Test {
         this._execExternal(address(weth), address(usdc), 1e18, 2000e6, hex"beef");
     }
 
-    /// reversed direction: taker sells USDC, buys WETH — 1 USDC -> 0.0005 WETH
+    /// reversed direction: taker sells USDC, buys WETH — 2000 USDC -> 1 WETH (feed ref 1/2000)
     function test_passesReversedDirection() public {
-        this._execExternal(address(usdc), address(weth), 2000e6, 0.0005e18, _args());
+        this._execExternal(address(usdc), address(weth), 2000e6, 1e18, _args());
     }
 
     function test_revertsReversedDirectionDeviation() public {

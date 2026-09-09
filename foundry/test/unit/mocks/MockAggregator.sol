@@ -20,6 +20,10 @@ contract MockAggregator is AggregatorV3Interface {
         decimalsOverride = _decimals;
     }
 
+    function decimals() external view returns (uint8) {
+        return decimalsOverride;
+    }
+
     function latestRoundData()
         external
         view

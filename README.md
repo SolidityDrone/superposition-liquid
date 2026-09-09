@@ -129,6 +129,17 @@ foundry/
 SPEC.md                            # full design + decision log (B1.1 … B8.2)
 ```
 
+## Dependency versions
+
+| Package | Pinned | Why |
+|---|---|---|
+| `1inch/swap-vm` | **v1.0.2** | matches the source the deployed router is built from (per 1inch guidance). The v1.0.2 diff only touches the Aqua protocol-fee opcodes (best-effort collection) which Superposition does not use |
+| `1inch/aqua` | **v1.0.0** | latest tag; interface proven compatible with the live Base registry by the fork E2E |
+| `aave/aave-v3-core` | latest (interfaces only) | IPool/DataTypes |
+| `openzeppelin/contracts` | **v5.4.0** | |
+| `@1inch/solidity-utils` | **6.9.7** | matches swap-vm's dependency |
+| Solidity | **0.8.30** | same as swap-vm |
+
 ## Base addresses (verified on-chain, see `script/BaseChain.s.sol`)
 
 | Contract | Address |

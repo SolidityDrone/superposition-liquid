@@ -92,8 +92,8 @@ contract ChainlinkGuardE2ETest is Test {
         );
         bytes memory fullProgram = abi.encodePacked(
             uint8(YIELD_ADJUSTED_RATE_XD),
-            uint8(60),
-            YieldArgsBuilder.build(address(adapter), address(usdc), address(weth)),
+            uint8(124),
+            YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
             program,
             uint8(CHAINLINK_GUARD_XD),
             uint8(92),

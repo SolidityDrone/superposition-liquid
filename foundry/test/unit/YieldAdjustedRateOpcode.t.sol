@@ -9,7 +9,7 @@ import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataP
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { YieldAdjustedRateOpcode } from "src/opcodes/YieldAdjustedRateOpcode.sol";
+import { YieldAdjustedRateOpcode, YieldArgsBuilder } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 
 contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
     uint256 internal constant RAY = 1e27;
@@ -30,10 +30,12 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
         adapter = new AaveV3Adapter(address(pool));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
+        _seedSupply(address(usdc), 1e6);
+        _seedSupply(address(weth), 1e15);
     }
 
-    function _opcodeArgs() internal view returns (bytes memory) {
-        return abi.encodePacked(address(adapter), address(usdc), address(weth));
+    function _opcodeArgs(uint256 rate0In, uint256 rate0Out) internal view returns (bytes memory) {
+        return YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), rate0In, rate0Out);
     }
 
     function _ctx(uint256 balanceIn, uint256 balanceOut) internal view returns (Context memory ctx) {
@@ -66,37 +68,40 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
         return (ctx.swap.balanceIn, ctx.swap.balanceOut);
     }
 
-    function test_scalesBothBalancesByExchangeRate() public {
+    function _seedSupply(address asset, uint256 amount) internal {
+        MockToken(asset).mint(address(this), amount);
+        MockToken(asset).approve(address(adapter), type(uint256).max);
+        adapter.depositFor(address(this), asset, amount);
+    }
+
+    function test_noop_whenRateUnchangedSinceShip() public {
+        (uint256 balIn, uint256 balOut) = this._execExternal(4000e6, 100 ether, _opcodeArgs(1e18, 1e18));
+        assertEq(balIn, 4000e6);
+        assertEq(balOut, 100 ether);
+    }
+
+    function test_scalesByRateGrowthSinceShip() public {
         pool.setNormalizedIncome(address(usdc), 103 * RAY / 100);
         pool.setNormalizedIncome(address(weth), 105 * RAY / 100);
-        _seedSupply(address(usdc), 1e6);
-        _seedSupply(address(weth), 1e15);
 
-        (uint256 balIn, uint256 balOut) = this._execExternal(4000e6, 100 ether, _opcodeArgs());
+        (uint256 balIn, uint256 balOut) = this._execExternal(4000e6, 100 ether, _opcodeArgs(1e18, 1e18));
 
         assertEq(balIn, 4000e6 * 103e18 / 100 / 1e18);
         assertEq(balOut, 100 ether * 105e18 / 100 / 1e18);
     }
 
-    function test_noop_whenRateIsOne() public view {
-        (uint256 balIn, uint256 balOut) = this._execExternal(4000e6, 100 ether, _opcodeArgs());
-
-        assertEq(balIn, 4000e6);
-        assertEq(balOut, 100 ether);
+    function test_relativeGrowth_onlyPostShipYieldCounts() public {
+        // rate0 = 1.05e18 at ship; now accrued to 1.1e18 -> only the 1.05->1.10 growth counts
+        pool.setNormalizedIncome(address(usdc), 11 * RAY / 10);
+        (uint256 balIn,) = this._execExternal(4000e6, 0, _opcodeArgs(105e16, 1e18));
+        // 4000 * 1.10/1.05 = 4190.47...
+        assertEq(balIn, uint256(4000e6) * 11e17 / 105e16); // 4190476190
     }
 
     function test_roundsDown() public {
         pool.setNormalizedIncome(address(weth), 15 * RAY / 10); // rate = 1.5e18
-        _seedSupply(address(weth), 1e15);
-        (, uint256 balOut) = this._execExternal(0, 1, _opcodeArgs());
-
+        (, uint256 balOut) = this._execExternal(0, 1, _opcodeArgs(1e18, 1e18));
         assertEq(balOut, 1); // 1.5 rounds down to 1
-    }
-
-    function _seedSupply(address asset, uint256 amount) internal {
-        MockToken(asset).mint(address(this), amount);
-        MockToken(asset).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(address(this), asset, amount);
     }
 
     function test_argsTooShort_reverts() public {

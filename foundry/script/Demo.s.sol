@@ -107,8 +107,8 @@ contract Demo is Script, StdCheats {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(60),
-                    YieldArgsBuilder.build(address(adapter), usdc, weth),
+                    uint8(124),
+                    YieldArgsBuilder.build(address(adapter), usdc, weth, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6), // 0.3% fee to maker
                     uint8(17), uint8(0), // XYCSwap._xycSwapXD
                     uint8(CHAINLINK_GUARD_XD),

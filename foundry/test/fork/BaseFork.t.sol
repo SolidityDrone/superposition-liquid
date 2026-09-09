@@ -75,10 +75,10 @@ contract BaseForkTest is Test {
         );
         vm.stopPrank();
 
-        // ship aToken counts (SPEC: virtual in yield-token units, effective = count * rate).
-        // In-side ships a tiny dust buffer: Aave v3.2 displayed-balance rounding can leave
-        // the real aUSDC balance 1-2 wei below the exact pushed underlying amount per fill.
-        wethVirtual = IERC20(aWeth).balanceOf(maker);
+        // ship in UNDERLYING units (rate0 baked in args captures post-ship yield only).
+        // Tiny dust buffers both sides: Aave v3.2 displayed-balance rounding can leave the
+        // real aToken balance a few wei below the exact underlying amounts moved per fill.
+        wethVirtual = IERC20(aWeth).balanceOf(maker) - 1e4;
         usdcVirtual = IERC20(aUsdc).balanceOf(maker) - 1e4;
 
         order = MakerTraitsLib.build(
@@ -102,8 +102,8 @@ contract BaseForkTest is Test {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(60),
-                    YieldArgsBuilder.build(address(adapter), usdc, weth),
+                    uint8(124),
+                    YieldArgsBuilder.build(address(adapter), usdc, weth, adapter.exchangeRate(usdc), adapter.exchangeRate(weth)),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap._xycSwapXD
                     uint8(CHAINLINK_GUARD_XD),

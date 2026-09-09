@@ -6,12 +6,13 @@ import { Context } from "@1inch/swap-vm/libs/VM.sol";
 
 import { YieldAdjustedRateOpcode } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { ChainlinkGuardOpcode } from "src/opcodes/ChainlinkGuardOpcode.sol";
+import { MakerCapitalGuardOpcode, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
 /// @title SupercazzolaOpcodes
 /// @notice AquaOpcodes table with two custom instructions appended at the end
 ///         (backward-compatible append-only pattern, see SPEC.md B3.1):
 ///         35 = YieldAdjustedRateXD, 36 = ChainlinkGuardXD
-contract SupercazzolaOpcodes is AquaOpcodes, YieldAdjustedRateOpcode, ChainlinkGuardOpcode {
+contract SupercazzolaOpcodes is AquaOpcodes, YieldAdjustedRateOpcode, ChainlinkGuardOpcode, MakerCapitalGuardOpcode {
     constructor(address aqua) AquaOpcodes(aqua) { }
 
     function _opcodes()
@@ -23,11 +24,12 @@ contract SupercazzolaOpcodes is AquaOpcodes, YieldAdjustedRateOpcode, ChainlinkG
         function(Context memory, bytes calldata) internal[] memory base = super._opcodes();
         uint256 baseLen = base.length;
 
-        result = new function(Context memory, bytes calldata) internal[](baseLen + 2);
+        result = new function(Context memory, bytes calldata) internal[](baseLen + 3);
         for (uint256 i = 0; i < baseLen; i++) {
             result[i] = base[i];
         }
         result[baseLen] = _yieldAdjustedRateXD;
         result[baseLen + 1] = _chainlinkGuardXD;
+        result[baseLen + 2] = _makerCapitalGuardXD;
     }
 }

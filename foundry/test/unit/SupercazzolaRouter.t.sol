@@ -16,7 +16,8 @@ import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
+import { GuardArgsBuilder } from "src/opcodes/ChainlinkGuardOpcode.sol";
+import { CapitalArgsBuilder } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
 
 /// @notice Full E2E on mocks: ship -> quote -> swap with JIT Aave cycling.
@@ -102,7 +103,9 @@ contract SupercazzolaRouterTest is Test {
             uint8(4),
             FeeArgsBuilder.buildFlatFee(3e6), // 0.3%
             uint8(17), // XYCSwap._xycSwapXD (v1.0.1 dispatch bytes)
-            uint8(0)
+            uint8(0),
+            uint8(36), uint8(60),
+            CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth))
         );
 
         order = MakerTraitsLib.build(

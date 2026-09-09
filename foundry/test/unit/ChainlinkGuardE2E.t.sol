@@ -17,6 +17,7 @@ import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD, ChainlinkGuardOpcode } from "src/opcodes/ChainlinkGuardOpcode.sol";
+import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
 /// @notice E2E with the Chainlink guard opcode wired into the program (SPEC B3.4).
 contract ChainlinkGuardE2ETest is Test {
@@ -97,7 +98,9 @@ contract ChainlinkGuardE2ETest is Test {
             program,
             uint8(CHAINLINK_GUARD_XD),
             uint8(92),
-            guardArgs
+            guardArgs,
+            uint8(36), uint8(60),
+            CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth))
         );
 
         lastOrder = MakerTraitsLib.build(

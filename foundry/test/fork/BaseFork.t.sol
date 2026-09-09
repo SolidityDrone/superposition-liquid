@@ -15,6 +15,7 @@ import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
+import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { BaseChain } from "script/BaseChain.s.sol";
 
 /// @notice Full E2E on a Base mainnet fork: real Aqua registry, real Aave v3, real tokens,
@@ -110,7 +111,9 @@ contract BaseForkTest is Test {
                     uint8(92),
                     GuardArgsBuilder.build(
                         weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
-                    )
+                    ),
+                    uint8(36), uint8(60),
+                    CapitalArgsBuilder.build(address(adapter), usdc, weth)
                 )
             })
         );

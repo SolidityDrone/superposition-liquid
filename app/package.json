@@ -1,0 +1,21 @@
+{
+  "name": "superposition-liquid-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Yield-backed liquidity positions for 1inch Aqua — 100% of capital earning yield, looking like a plain ETH/USDC pool",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^15.4.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -69,6 +69,11 @@ contract MockPendleSY is ERC20 {
         _mint(to, amount);
     }
 
+    /// @notice test-only: direct SY minting (real SY mints via deposit)
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
     function redeem(
         address receiver,
         uint256 amountShareToRedeem,
@@ -84,17 +89,83 @@ contract MockPendleSY is ERC20 {
     }
 }
 
+/// @notice ACTIVE-market mock: PT/SY swap with the Pendle callback pattern.
+/// The market sends SY out first, then calls back on the caller to collect the PT.
+contract MockActiveMarket {
+    MockPendlePT public immutable PT;
+    address public immutable SY;
+    address public immutable YT;
+    // pt price in SY units (18 dec), e.g. 0.95e18 for a 5% implied yield
+    uint256 public ptPrice = 95e16;
+
+    constructor(MockPendlePT pt, address sy, address yt) {
+        PT = pt;
+        SY = sy;
+        YT = yt;
+    }
+
+    function readTokens() external view returns (address, address, address) {
+        return (SY, address(PT), YT);
+    }
+
+    function setPtPrice(uint256 price) external {
+        ptPrice = price;
+    }
+
+    function isExpired() external view returns (bool) {
+        return false;
+    }
+
+    /// @notice fund the market with SY inventory
+    function seed(uint256 amount) external {
+        IERC20(SY).transferFrom(msg.sender, address(this), amount);
+    }
+
+    function swapExactPtForSy(address receiver, uint256 exactPtIn, bytes calldata data)
+        external
+        returns (uint256 netSyOut, uint256 netSyFee)
+    {
+        netSyOut = exactPtIn * ptPrice / 1e18;
+        IERC20(SY).transfer(receiver, netSyOut);
+        IPMarketSwapCallbackLike(msg.sender).swapCallback(-int256(exactPtIn), int256(netSyOut), data);
+        require(IERC20(address(PT)).balanceOf(address(this)) >= exactPtIn, "PT not received");
+        data; netSyFee;
+    }
+}
+
+interface IPMarketSwapCallbackLike {
+    function swapCallback(int256 ptToAccount, int256 syToAccount, bytes calldata data) external;
+}
+
+/// @notice PendlePYLpOracle mock: settable PT->asset rate
+contract MockPendleOracle {
+    uint256 public rate = 95e16;
+
+    function setRate(uint256 rate_) external {
+        rate = rate_;
+    }
+
+    function getPtToAssetRate(address /* market */, uint32 /* duration */ ) external view returns (uint256) {
+        return rate;
+    }
+
+    /// @notice the adapter denominates the rate in the DELIVERABLE (SY redeems 1:1)
+    function getPtToSyRate(address /* market */, uint32 /* duration */ ) external view returns (uint256) {
+        return rate;
+    }
+}
+
 contract MockPendleMarket {
     address public immutable SY;
     address public immutable PT;
     address public immutable YT;
     bool public immutable expired;
 
-    constructor(address sy, address pt, address yt, bool isExpired) {
+    constructor(address sy, address pt, address yt, bool expired_) {
         SY = sy;
         PT = pt;
         YT = yt;
-        expired = isExpired;
+        expired = expired_;
     }
 
     function readTokens() external view returns (address, address, address) {

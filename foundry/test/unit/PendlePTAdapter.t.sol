@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { MockPendlePT, MockPendleYieldToken, MockPendleSY, MockPendleMarket, MockToken } from "test/unit/mocks/MockPendle.sol";
-import { PendlePTAdapter } from "src/pendle/PendlePTAdapter.sol";
+import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 
 /// @notice Fixed-income adapter: maker's capital in an EXPIRED Pendle PT (redeemable 1:1
 /// for the underlying, zero swap legs). Post-maturity redemption:
@@ -32,7 +32,7 @@ contract PendlePTAdapterTest is Test {
         yt.setSy(address(sy));
         pt.setYt(address(yt));
         market = address(new MockPendleMarket(address(sy), address(pt), address(yt), true));
-        adapter = new PendlePTAdapter(address(market), address(usdc), weth);
+        adapter = new PendlePTAdapter(address(market), address(usdc), weth, address(0), 900);
 
         // SY holds the underlying backing (Pendle holds it post-maturity too)
         usdc.mint(address(sy), 1_000_000e6);

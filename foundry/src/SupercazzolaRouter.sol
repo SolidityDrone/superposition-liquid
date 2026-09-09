@@ -40,6 +40,7 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
     /// @notice Called by SwapVM before tokenOut leaves the maker. JIT-unwraps from the
     ///         lending protocol into the maker wallet; SwapVM's default Aqua.pull then
     ///         delivers to the taker from the maker wallet.
+    /// @dev Direction-agnostic: tokenOut can be either of the strategy's two underlyings.
     function preTransferOut(
         address maker,
         address /* taker */,
@@ -52,13 +53,14 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         bytes calldata /* takerData */
     ) external {
         MakerVaultConfig memory cfg = MAKER_CONFIG.getConfig(maker);
-        if (cfg.autoWithdrawOut && cfg.underlyingOut == tokenOut) {
+        if (cfg.autoWithdrawOut && (cfg.underlyingOut == tokenOut || cfg.underlyingIn == tokenOut)) {
             ILendingAdapter(cfg.adapter).withdrawTo(maker, tokenOut, amountOut, maker);
         }
     }
 
     /// @notice Called by SwapVM after tokenIn reached the maker wallet. Deploys the
     ///         received tokens into the lending protocol on behalf of the maker.
+    /// @dev Direction-agnostic: tokenIn can be either of the strategy's two underlyings.
     function postTransferIn(
         address maker,
         address /* taker */,
@@ -71,7 +73,7 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         bytes calldata /* takerData */
     ) external {
         MakerVaultConfig memory cfg = MAKER_CONFIG.getConfig(maker);
-        if (cfg.autoDepositIn && cfg.underlyingIn == tokenIn) {
+        if (cfg.autoDepositIn && (cfg.underlyingIn == tokenIn || cfg.underlyingOut == tokenIn)) {
             ILendingAdapter(cfg.adapter).depositFor(maker, tokenIn, amountIn);
         }
     }

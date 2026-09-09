@@ -61,7 +61,9 @@ contract BaseForkTest is Test {
         adapter.depositFor(maker, weth, wethReal);
         adapter.depositFor(maker, usdc, usdcReal);
         IERC20(aWeth).approve(address(adapter), type(uint256).max);
+        IERC20(aUsdc).approve(address(adapter), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
+        IERC20(usdc).approve(address(aqua), type(uint256).max); // reverse-direction pulls
         makerConfig.setConfig(
             MakerVaultConfig({
                 adapter: address(adapter),

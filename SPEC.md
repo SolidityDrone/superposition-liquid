@@ -32,6 +32,13 @@ plug in per-maker.
 | B6.1 | **Solo path Aqua** (`useAquaInsteadOfSignature = true`). No path EIP-712 puro | Scope ridotto |
 | B6.2 | **Base mainnet** come chain target: Aqua+SwapVM deployati (`0x111111338c…c0de`), Aave v3 (aWETH/aUSDC) live, Chainlink feeds live. Demo su **Anvil fork di Base** (bounty rules: "local forks are ok") | Nessuna dipendenza testnet |
 | B6.3 | Testnet: 1inch Aqua NON è su Base Sepolia; su Sepolia il router vanity non è deployato (solo gen 2026-07-16). Self-deploy dello stack solo se strettamente necessario | Skip: fork-only demo |
+| B7.1 | **Aave su Base è v3.2+**: `aToken.balanceOf` è già index-accrued (deposit 105 WETH → 105 aWETH displayed, yield cresce come balance). Il rate generico `scaledTotalSupply × liquidityIndex × 1e18 / (totalSupply × 1e27)` = 1e18 su v3.2+, = liquidityIndex su legacy. Converto SEMPRE in unità displayed | Adapter AaveV3Adapter.exchangeRate |
+| B7.2 | Virtual balance shipped in **aToken count units** (non underlying): effective = count × rate = real underlying esatto. Ship-side dust buffer (~1e4 raw) sul lato in: il rounding displayed di Aave può lasciare il real 1-2 wei sotto l'importo pushed esatto | ship amounts; invariant real ≥ virtual |
+| B7.3 | Opcode dispatch bytes (v1.0.1): byte = indice statico − 1 (xycSwap=17, flatFeeIn=21, salt=20, gap 0-9/22-26). Custom: YieldAdjustedRateXD=**34**, ChainlinkGuardXD=**35** (appesi dopo onlyTxOrigin=33) | program bytecode |
+| B7.4 | Program order: `[yield][flatFeeIn][xyc][guard]` — flatFee esegue ricorsivamente il resto del programma e il guard deve vedere amountIn/amountOut già calcolati | program bytecode |
+| B7.5 | Hook **direction-agnostic**: la strategia 2D scambia in entrambe le direzioni → preTransferOut/postTransferIn matchano tokenOut/tokenIn contro ENTRAMBI gli underlyings della config (bug trovato dal demo fill #2) | SupercazzolaRouter hooks |
+| B7.6 | Guard staleness **per-feed**: USDC/USD su Base aggiorna su heartbeat ~12h (stablecoin); ETH/USD ~1m. Args: (token0, token1, feed0, feed1, maxDevBps, staleness0, staleness1) = 92 bytes | ChainlinkGuardOpcode |
+| B7.7 | Approvals completi (update B4.1): `aWETH → adapter`, `aUSDC → adapter`, `WETH → Aqua`, `USDC → Aqua` (pull bidirezionale). Verificato dal demo: senza aUSDC→adapter il fill reverse reverta | maker setup |
 
 ## Architettura (aggiornata JIT-unwrap)
 

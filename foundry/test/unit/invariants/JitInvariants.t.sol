@@ -96,8 +96,8 @@ contract JitInvariantsTest is Test {
                 postTransferOutTarget: address(0),
                 postTransferOutData: "",
                 program: abi.encodePacked(
-                    uint8(YIELD_ADJUSTED_RATE_XD), uint8(60),
-                    YieldArgsBuilder.build(address(adapter), address(usdc), address(weth)),
+                    uint8(YIELD_ADJUSTED_RATE_XD), uint8(124),
+                    YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0)
                 )

@@ -39,6 +39,8 @@ plug in per-maker.
 | B7.5 | Hook **direction-agnostic**: la strategia 2D scambia in entrambe le direzioni → preTransferOut/postTransferIn matchano tokenOut/tokenIn contro ENTRAMBI gli underlyings della config (bug trovato dal demo fill #2) | SupercazzolaRouter hooks |
 | B7.6 | Guard staleness **per-feed**: USDC/USD su Base aggiorna su heartbeat ~12h (stablecoin); ETH/USD ~1m. Args: (token0, token1, feed0, feed1, maxDevBps, staleness0, staleness1) = 92 bytes | ChainlinkGuardOpcode |
 | B7.7 | Approvals completi (update B4.1): `aWETH → adapter`, `aUSDC → adapter`, `WETH → Aqua`, `USDC → Aqua` (pull bidirezionale). Verificato dal demo: senza aUSDC→adapter il fill reverse reverta | maker setup |
+| B8.1 | **Adapter generico ERC-4626**: `ERC4626Adapter` copre qualsiasi vault 4626-compliant (testato contro mock in stile MetaMorpho/Morpho e Euler v2). Registry `underlying → vault` fissato al deploy; rate = `vault.convertToAssets(1e18)` (fonte: il vault stesso, niente oracle); `withdrawTo` = redeem diretto al recipient; `depositFor` = pull da maker + deposit con `forceApprove` verso il vault (il vault pulla dal caller) | src/adapters/ERC4626Adapter.sol |
+| B8.2 | Adapter borrow delta-neutral (collateral WETH + borrow WETH come inventario AMM, repay same-asset sui fill): **designato, deferred a v0.2** — il repay con USDC ricevuti richiede swap nel hook e la gestione HF è out of scope. Documentato nel README come future work | future work |
 
 ## Architettura (aggiornata JIT-unwrap)
 
@@ -109,4 +111,4 @@ Dipendenze Foundry (submodule o remapping, pattern qilinswap):
 
 ## Out of scope (v0.1)
 
-Health factor/liquidation, Uniswap v4 hook, multi-adapter per maker, ERC-4626 adapter, frontend full, cross-chain, path EIP-712 puro, borrow loop.
+Health factor/liquidation, Uniswap v4 hook, multi-adapter per maker (un adapter per maker per ora), frontend full, cross-chain, path EIP-712 puro, adapter borrow delta-neutral (B8.2), adapter wstETH (richiede swap leg nel hook).

@@ -8,9 +8,13 @@ import { useEffect, useRef } from "react";
  * A height field drives every tile: continuous directional waves travel across
  * the grid (tiles rise/fall, scale and brighten on crests, dim in troughs),
  * while ripples — ambient and pointer-spawned — push the surface like touches
- * of water. Drawn back-to-front on canvas at 60fps; static frame under
- * prefers-reduced-motion. The parent (.tile-bg) masks/positions it: the
- * right-side placement and readability scrim still apply.
+ * of water. Drawn back-to-front on canvas at 60fps.
+ *
+ * prefers-reduced-motion: the surface keeps moving only very slowly (gentle
+ * drift, no splashes) instead of freezing on a single frame.
+ *
+ * The parent (.tile-bg) masks/positions it: the right-side placement and the
+ * readability scrim still apply.
  */
 
 const TILE = 38;
@@ -49,9 +53,25 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // virtual clock: under reduced-motion time flows at 0.3x (calm drift)
+    const timeScale = reduced ? 0.3 : 1;
+
+    function resize() {
+      const rect = (canvas as HTMLCanvasElement).parentElement!.getBoundingClientRect();
+      w = rect.width;
+      h = rect.height;
+      canvas!.width = Math.floor(w * dpr);
+      canvas!.height = Math.floor(h * dpr);
+      canvas!.style.width = `${w}px`;
+      canvas!.style.height = `${h}px`;
+      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cols = Math.ceil(w / PITCH) + 2;
+      rows = Math.ceil(h / PITCH) + 3;
+    }
+
     function spawn(x: number, y: number, amp: number) {
       if (ripples.length >= MAX_RIPPLES) ripples.shift();
-      ripples.push({ x, y, t0: performance.now(), amp });
+      ripples.push({ x, y, t0: vt, amp });
     }
 
     function spawnRandom() {
@@ -81,8 +101,7 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
       return sum;
     }
 
-    function draw(now: number) {
-      const t = now / 1000;
+    function draw(t: number) {
       ctx!.clearRect(0, 0, w, h);
 
       // back-to-front so lifted tiles overlap correctly
@@ -104,7 +123,7 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
 
           const rC = Math.round(56 + mixCrest * 69); // 56 → 125 (azure → light)
           const gC = Math.round(189 + mixCrest * 24); // 189 → 213
-          const bC = Math.round(248);
+          const bC = 248;
 
           ctx!.save();
           ctx!.translate(cx, cy - lift);
@@ -129,20 +148,8 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
       ctx!.shadowBlur = 0;
     }
 
-    function resize() {
-      const rect = (canvas as HTMLCanvasElement).parentElement!.getBoundingClientRect();
-      w = rect.width;
-      h = rect.height;
-      canvas!.width = Math.floor(w * dpr);
-      canvas!.style.width = `${w}px`;
-      canvas!.height = Math.floor(h * dpr);
-      canvas!.style.height = `${h}px`;
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.ceil(w / PITCH) + 2;
-      rows = Math.ceil(h / PITCH) + 3;
-    }
-
     function onPointerMove(e: PointerEvent) {
+      if (reduced) return; // no splashes under reduced motion
       const now = performance.now();
       if (now - lastPointerRipple < 140) return;
       const rect = canvas!.getBoundingClientRect();
@@ -155,31 +162,37 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
 
     // ---- start "wet": waves already travelling ----
     resize();
-    const now0 = performance.now();
+    let last = performance.now();
+    let vt = 0; // virtual clock (ms), advances at timeScale
     ripples = [
-      { x: w * 0.8, y: h * 0.25, t0: now0 - 900, amp: 1.4 },
-      { x: w * 0.55, y: h * 0.7, t0: now0 - 300, amp: 1.1 },
+      { x: w * 0.8, y: h * 0.25, t0: -900, amp: 1.4 },
+      { x: w * 0.55, y: h * 0.7, t0: -300, amp: 1.1 },
     ];
-    draw(now0);
-    nextSpawn = now0 + 1800;
-
-    if (reduced) return () => {};
+    nextSpawn = 1800;
 
     function loop() {
-      const now = performance.now();
-      ripples = ripples.filter((rp) => now - rp.t0 < 3200);
-      if (now > nextSpawn) {
-        spawnRandom();
-        nextSpawn = now + 2400 + Math.random() * 2400;
+      try {
+        const now = performance.now();
+        vt += (now - last) * timeScale;
+        last = now;
+
+        ripples = ripples.filter((rp) => vt - rp.t0 < 3200);
+        if (vt > nextSpawn) {
+          if (!reduced) spawnRandom();
+          nextSpawn = vt + 2400 + Math.random() * 2400;
+        }
+        draw(vt / 1000);
+      } catch (err) {
+        // never let one bad frame kill the loop
+        console.warn("[aqua-bg] frame error", err);
       }
-      draw(now);
       raf = requestAnimationFrame(loop);
     }
     raf = requestAnimationFrame(loop);
 
     const onResize = () => {
       resize();
-      draw(performance.now());
+      draw(vt / 1000);
     };
     window.addEventListener("resize", onResize);
     window.addEventListener("pointermove", onPointerMove);

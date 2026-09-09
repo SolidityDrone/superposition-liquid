@@ -3,21 +3,29 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Fluid "aqua" background: the tile grid behaves like a liquid surface.
- * Concentric ripples travel across the grid and light the tiles up as they
- * pass; the pointer spawns ripples of its own (touching water). Rendered on
- * canvas for 60fps with glow; falls back to a static frame under
- * prefers-reduced-motion. The parent (.tile-bg) masks/positions it — the
- * right-side placement and the readability scrim in globals.css still apply.
+ * Fluid "aqua" background — the tile grid is a real liquid surface.
+ *
+ * A height field drives every tile: continuous directional waves travel across
+ * the grid (tiles rise/fall, scale and brighten on crests, dim in troughs),
+ * while ripples — ambient and pointer-spawned — push the surface like touches
+ * of water. Drawn back-to-front on canvas at 60fps; static frame under
+ * prefers-reduced-motion. The parent (.tile-bg) masks/positions it: the
+ * right-side placement and readability scrim still apply.
  */
 
 const TILE = 38;
-const GAP = 22;
+const GAP = 20;
 const PITCH = TILE + GAP;
-const SPEED = 240; // ripple speed, px/s
-const SIGMA = 55; // ring thickness, px
-const LIFE = 4200; // ripple lifetime, ms
-const MAX_RIPPLES = 8;
+const MAX_RIPPLES = 9;
+
+type Wave = { dx: number; dy: number; len: number; speed: number; amp: number };
+
+// continuous ambient currents (direction, wavelength px, rad/s, amplitude)
+const WAVES: Wave[] = [
+  { dx: 1, dy: 0.35, len: 380, speed: 1.15, amp: 1.0 },
+  { dx: -0.55, dy: 1, len: 560, speed: 0.75, amp: 0.65 },
+  { dx: 0.8, dy: -0.6, len: 240, speed: 1.7, amp: 0.35 },
+];
 
 type Ripple = { x: number; y: number; t0: number; amp: number };
 
@@ -39,45 +47,83 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
     let nextSpawn = 0;
     let lastPointerRipple = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    function intensityAt(px: number, py: number, now: number): number {
-      let i = 0;
-      for (const r of ripples) {
-        const age = now - r.t0;
-        const decay = 1 - age / LIFE;
-        if (decay <= 0) continue;
-        const ring = (age / 1000) * SPEED;
-        const d = Math.hypot(px - r.x, py - r.y);
-        const g = Math.exp(-((d - ring) * (d - ring)) / (2 * SIGMA * SIGMA));
-        i += r.amp * g * decay;
+    function spawn(x: number, y: number, amp: number) {
+      if (ripples.length >= MAX_RIPPLES) ripples.shift();
+      ripples.push({ x, y, t0: performance.now(), amp });
+    }
+
+    function spawnRandom() {
+      spawn(
+        w * (0.4 + Math.random() * 0.6),
+        h * (0.1 + Math.random() * 0.8),
+        1.0 + Math.random() * 0.6
+      );
+    }
+
+    /** combined surface height at a point, roughly in [-1.6, +1.6] */
+    function heightAt(px: number, py: number, t: number): number {
+      let sum = 0;
+      for (const wv of WAVES) {
+        const phase = (px * wv.dx + py * wv.dy) / wv.len + t * wv.speed;
+        sum += wv.amp * Math.sin(phase * Math.PI * 2);
       }
-      return Math.min(i, 1.4);
+      for (const rp of ripples) {
+        const age = (t * 1000 - rp.t0) / 1000;
+        const decay = Math.max(0, 1 - age / 3.2);
+        if (decay <= 0) continue;
+        const ring = age * 210;
+        const d = Math.hypot(px - rp.x, py - rp.y);
+        const g = Math.exp(-((d - ring) * (d - ring)) / (2 * 62 * 62));
+        sum += rp.amp * g * decay * Math.cos((d - ring) / 14);
+      }
+      return sum;
     }
 
     function draw(now: number) {
+      const t = now / 1000;
       ctx!.clearRect(0, 0, w, h);
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          const x = c * PITCH + GAP / 2;
-          const y = r * PITCH + GAP / 2;
-          const i = intensityAt(x + TILE / 2, y + TILE / 2, now);
-          const alpha = 0.025 + Math.min(0.72, i * 0.75);
+
+      // back-to-front so lifted tiles overlap correctly
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = c * PITCH + PITCH / 2;
+          const cy = r * PITCH + PITCH / 2;
+          const height = heightAt(cx, cy, t);
+
+          const lift = height * 9; // vertical liquid motion
+          const scale = 1 + height * 0.055; // crests closer to the eye
+          const size = TILE * scale;
+
+          // color: crests bright azure, troughs sink dark
+          const crest = Math.max(0, height);
+          const trough = Math.max(0, -height);
+          const alpha = 0.03 + crest * 0.38 + trough * 0.012;
+          const mixCrest = Math.min(1, crest / 1.1);
+
+          const rC = Math.round(56 + mixCrest * 69); // 56 → 125 (azure → light)
+          const gC = Math.round(189 + mixCrest * 24); // 189 → 213
+          const bC = Math.round(248);
+
+          ctx!.save();
+          ctx!.translate(cx, cy - lift);
+          ctx!.scale(scale, scale);
           ctx!.beginPath();
           if (typeof ctx!.roundRect === "function") {
-            ctx!.roundRect(x, y, TILE, TILE, 6);
+            ctx!.roundRect(-TILE / 2, -TILE / 2, TILE, TILE, 6);
           } else {
-            ctx!.rect(x, y, TILE, TILE);
+            ctx!.rect(-TILE / 2, -TILE / 2, TILE, TILE);
           }
-          if (i > 0.18) {
-            ctx!.shadowColor = "rgba(56, 189, 248, 0.5)";
-            ctx!.shadowBlur = 20 * Math.min(i, 1);
+          if (crest > 0.55) {
+            ctx!.shadowColor = "rgba(125, 211, 252, 0.55)";
+            ctx!.shadowBlur = 24 * crest;
           } else {
             ctx!.shadowBlur = 0;
           }
-          ctx!.fillStyle = `rgba(56, 189, 248, ${alpha.toFixed(3)})`;
+          ctx!.fillStyle = `rgba(${rC}, ${gC}, ${bC}, ${alpha.toFixed(3)})`;
           ctx!.fill();
+          ctx!.restore();
         }
       }
       ctx!.shadowBlur = 0;
@@ -88,59 +134,43 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
       w = rect.width;
       h = rect.height;
       canvas!.width = Math.floor(w * dpr);
-      canvas!.height = Math.floor(h * dpr);
       canvas!.style.width = `${w}px`;
+      canvas!.height = Math.floor(h * dpr);
       canvas!.style.height = `${h}px`;
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.ceil(w / PITCH) + 1;
-      rows = Math.ceil(h / PITCH) + 1;
-    }
-
-    function spawn(x: number, y: number, amp: number) {
-      if (ripples.length >= MAX_RIPPLES) ripples.shift();
-      ripples.push({ x, y, t0: performance.now(), amp });
-    }
-
-    function spawnRandom() {
-      spawn(
-        w * (0.35 + Math.random() * 0.65), // bias to the right (the visible side)
-        h * (0.1 + Math.random() * 0.8),
-        0.65 + Math.random() * 0.5
-      );
+      cols = Math.ceil(w / PITCH) + 2;
+      rows = Math.ceil(h / PITCH) + 3;
     }
 
     function onPointerMove(e: PointerEvent) {
       const now = performance.now();
-      if (now - lastPointerRipple < 160) return;
+      if (now - lastPointerRipple < 140) return;
       const rect = canvas!.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       if (x < 0 || y < 0 || x > w || y > h) return;
       lastPointerRipple = now;
-      spawn(x, y, 0.55);
+      spawn(x, y, 1.5); // a real splash pushes the surface
     }
 
-    // ---- initial frame: start "wet" with two ripples already travelling ----
+    // ---- start "wet": waves already travelling ----
     resize();
     const now0 = performance.now();
     ripples = [
-      { x: w * 0.75, y: h * 0.3, t0: now0 - 1200, amp: 0.9 },
-      { x: w * 0.55, y: h * 0.7, t0: now0 - 600, amp: 0.7 },
+      { x: w * 0.8, y: h * 0.25, t0: now0 - 900, amp: 1.4 },
+      { x: w * 0.55, y: h * 0.7, t0: now0 - 300, amp: 1.1 },
     ];
     draw(now0);
-    nextSpawn = now0 + 1400;
+    nextSpawn = now0 + 1800;
 
-    if (reduced) {
-      // static surface: no animation loop, no listeners
-      return () => {};
-    }
+    if (reduced) return () => {};
 
     function loop() {
       const now = performance.now();
-      ripples = ripples.filter((r) => now - r.t0 < LIFE);
+      ripples = ripples.filter((rp) => now - rp.t0 < 3200);
       if (now > nextSpawn) {
         spawnRandom();
-        nextSpawn = now + 2200 + Math.random() * 2000;
+        nextSpawn = now + 2400 + Math.random() * 2400;
       }
       draw(now);
       raf = requestAnimationFrame(loop);

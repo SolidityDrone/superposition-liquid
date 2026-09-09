@@ -6,8 +6,8 @@ import { Context } from "@1inch/swap-vm/libs/VM.sol";
 
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
 
-// Opcode byte index, appended at the end of the AquaOpcodes table (base table = 35).
-uint256 constant YIELD_ADJUSTED_RATE_XD = 35;
+// Opcode byte index, appended at the end of the AquaOpcodes table (base AquaOpcodes table = 34 usable opcodes, 0..33).
+uint256 constant YIELD_ADJUSTED_RATE_XD = 34;
 
 library YieldArgsBuilder {
     error YieldArgsInvalidLength();

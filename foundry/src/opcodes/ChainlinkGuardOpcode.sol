@@ -9,7 +9,7 @@ import { Context } from "@1inch/swap-vm/libs/VM.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
 
 // Opcode byte index, appended after YieldAdjustedRateOpcode (see SPEC.md B3.4).
-uint256 constant CHAINLINK_GUARD_XD = 36;
+uint256 constant CHAINLINK_GUARD_XD = 35;
 
 library GuardArgsBuilder {
     /// @dev Builds opcode args: token0 + token1 + feed0 + feed1 + maxDeviationBps + maxStaleness (88 bytes).

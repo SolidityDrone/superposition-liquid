@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { Calldata } from "@1inch/solidity-utils/contracts/libraries/Calldata.sol";
+
+import { Context } from "@1inch/swap-vm/libs/VM.sol";
+
+import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
+
+// Opcode byte index, appended after YieldAdjustedRateOpcode (see SPEC.md B3.4).
+uint256 constant CHAINLINK_GUARD_XD = 36;
+
+library GuardArgsBuilder {
+    /// @dev Builds opcode args: feedIn + feedOut + maxDeviationBps + maxStalenessSeconds (48 bytes)
+    function build(address feedIn, address feedOut, uint32 maxDeviationBps, uint32 maxStalenessSeconds)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(feedIn, feedOut, maxDeviationBps, maxStalenessSeconds);
+    }
+}
+
+/// @title ChainlinkGuardOpcode
+/// @notice Manipulation-resistant pricing guard (Chainlink Data Feeds): reverts if the
+///         implied swap price deviates more than maxDeviationBps from the Chainlink
+///         reference price, or if a feed is stale beyond maxStalenessSeconds.
+contract ChainlinkGuardOpcode {
+    using Calldata for bytes;
+
+    error GuardArgsTooShort();
+    error StalePrice(address feed);
+    error PriceDeviationExceeded(uint256 implied, uint256 amountIn, uint256 ref);
+
+    /// @param args.feedIn             | 20 bytes | Chainlink feed of tokenIn (USD-quoted)
+    /// @param args.feedOut            | 20 bytes | Chainlink feed of tokenOut (USD-quoted)
+    /// @param args.maxDeviationBps    |  4 bytes | uint32, e.g. 200 = 2%
+    /// @param args.maxStalenessSeconds|  4 bytes | uint32, e.g. 3600
+    function _chainlinkGuardXD(Context memory ctx, bytes calldata args) internal view {
+        if (args.length < 48) revert GuardArgsTooShort();
+
+        address feedIn = address(bytes20(args.slice(0, 20)));
+        address feedOut = address(bytes20(args.slice(20, 40)));
+        uint32 maxDeviationBps = uint32(bytes4(args.slice(40, 44)));
+        uint32 maxStalenessSeconds = uint32(bytes4(args.slice(44, 48)));
+
+        if (ctx.swap.amountIn == 0 || ctx.swap.amountOut == 0) return;
+
+        _checkFresh(feedIn, maxStalenessSeconds);
+        _checkFresh(feedOut, maxStalenessSeconds);
+
+        (, int256 answerIn,, ,) = AggregatorV3Interface(feedIn).latestRoundData();
+        (, int256 answerOut,, ,) = AggregatorV3Interface(feedOut).latestRoundData();
+
+        // Reference: tokenOut per tokenIn, 1e18 fixed point (feeds are USD-quoted)
+        uint8 decFeedIn = AggregatorV3Interface(feedIn).decimals();
+        uint8 decFeedOut = AggregatorV3Interface(feedOut).decimals();
+        uint256 ref = uint256(answerIn) * (10 ** decFeedOut) * 1e18
+            / (uint256(answerOut) * (10 ** decFeedIn));
+
+        // Implied price: tokenOut per tokenIn, 1e18 fixed point, decimal-normalized
+        uint8 decIn = IERC20Metadata(ctx.query.tokenIn).decimals();
+        uint8 decOut = IERC20Metadata(ctx.query.tokenOut).decimals();
+        uint256 implied = ctx.swap.amountOut * (10 ** decIn) * 1e18 / (ctx.swap.amountIn * (10 ** decOut));
+
+        uint256 deviation = implied > ref ? implied - ref : ref - implied;
+        if (deviation * 10_000 > ref * maxDeviationBps) {
+            revert PriceDeviationExceeded(implied, ctx.swap.amountIn, ref);
+        }
+    }
+
+    function _checkFresh(address feed, uint32 maxStalenessSeconds) internal view {
+        (, , , uint256 updatedAt,) = AggregatorV3Interface(feed).latestRoundData();
+        if (block.timestamp - updatedAt > maxStalenessSeconds) revert StalePrice(feed);
+    }
+}

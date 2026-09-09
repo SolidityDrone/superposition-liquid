@@ -1,6 +1,13 @@
-out/
-cache/
+# build artifacts
+foundry/out/
+foundry/cache/
+foundry/deployments/
+foundry/broadcast/
+
+# secrets
 .env
-deployments/
-broadcast/
+*.key
+
+# junk
 *.todo
+.DS_Store

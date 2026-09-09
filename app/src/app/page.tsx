@@ -151,6 +151,7 @@ export default function Page() {
       {/* ---------- hero ---------- */}
       <header className="hero">
         <TileBackground />
+        <div className="hero-scrim" aria-hidden />
         <div className="container hero-inner">
           <div className="eyebrow">BUILT ON 1INCH AQUA · ETHONLINE 2026</div>
           <h1>

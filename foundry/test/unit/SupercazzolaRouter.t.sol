@@ -26,6 +26,7 @@ contract SupercazzolaRouterTest is Test {
     Aqua internal aqua;
     MockAavePool internal pool;
     MockAToken internal aToken;
+    MockAToken internal aTokenUsdc;
     MockToken internal weth;
     MockToken internal usdc;
     AaveV3Adapter internal adapter;
@@ -45,10 +46,13 @@ contract SupercazzolaRouterTest is Test {
         taker = makeAddr("taker");
 
         aqua = new Aqua();
-        aToken = new MockAToken();
-        pool = new MockAavePool(address(aToken));
+        pool = new MockAavePool();
         weth = new MockToken("WETH", 18);
         usdc = new MockToken("USDC", 6);
+        aToken = new MockAToken();
+        pool.registerAToken(address(weth), aToken);
+        aTokenUsdc = new MockAToken();
+        pool.registerAToken(address(usdc), aTokenUsdc);
         adapter = new AaveV3Adapter(address(pool));
         makerConfig = new MakerConfig();
         router = new SupercazzolaRouter(
@@ -86,7 +90,7 @@ contract SupercazzolaRouterTest is Test {
         // sanity: maker holds zero idle capital, all in aTokens
         assertEq(weth.balanceOf(maker), 0);
         assertEq(usdc.balanceOf(maker), 0);
-        assertEq(aToken.balanceOf(maker), 105e18 + 4500e6);
+        assertEq(aToken.balanceOf(maker) + aTokenUsdc.balanceOf(maker), 105e18 + 4500e6);
     }
 
     function _shipStrategy() internal {
@@ -201,7 +205,7 @@ contract SupercazzolaRouterTest is Test {
         assertEq(usdc.balanceOf(maker), 0);
 
         // capital moved into Aave: aWETH burned for delivery, aUSDC from the fill
-        assertEq(aToken.balanceOf(maker), 105e18 + 4500e6 - expectedOut + 1000e6);
+        assertEq(aToken.balanceOf(maker) + aTokenUsdc.balanceOf(maker), 105e18 + 4500e6 - expectedOut + 1000e6);
 
         // pool holds everything
         assertEq(weth.balanceOf(address(pool)), 105e18 - expectedOut);

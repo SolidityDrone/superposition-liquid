@@ -23,6 +23,7 @@ contract ChainlinkGuardE2ETest is Test {
     Aqua internal aqua;
     MockAavePool internal pool;
     MockAToken internal aToken;
+    MockAToken internal aTokenUsdc;
     MockToken internal weth;
     MockToken internal usdc;
     MockAggregator internal ethFeed;
@@ -41,10 +42,13 @@ contract ChainlinkGuardE2ETest is Test {
         taker = makeAddr("taker");
 
         aqua = new Aqua();
-        aToken = new MockAToken();
-        pool = new MockAavePool(address(aToken));
+        pool = new MockAavePool();
         weth = new MockToken("WETH", 18);
         usdc = new MockToken("USDC", 6);
+        aToken = new MockAToken();
+        pool.registerAToken(address(weth), aToken);
+        aTokenUsdc = new MockAToken();
+        pool.registerAToken(address(usdc), aTokenUsdc);
         ethFeed = new MockAggregator();
         usdcFeed = new MockAggregator();
         ethFeed.setAnswer(2000e8);
@@ -84,7 +88,7 @@ contract ChainlinkGuardE2ETest is Test {
         );
 
         bytes memory guardArgs = GuardArgsBuilder.build(
-            address(weth), address(usdc), address(ethFeed), address(usdcFeed), 200, 3600
+            address(weth), address(usdc), address(ethFeed), address(usdcFeed), 200, 3600, 3600
         );
         bytes memory fullProgram = abi.encodePacked(
             uint8(YIELD_ADJUSTED_RATE_XD),
@@ -92,7 +96,7 @@ contract ChainlinkGuardE2ETest is Test {
             YieldArgsBuilder.build(address(adapter), address(usdc), address(weth)),
             program,
             uint8(CHAINLINK_GUARD_XD),
-            uint8(88),
+            uint8(92),
             guardArgs
         );
 

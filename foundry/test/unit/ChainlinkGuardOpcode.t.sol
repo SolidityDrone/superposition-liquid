@@ -31,11 +31,11 @@ contract ChainlinkGuardOpcodeTest is ChainlinkGuardOpcode, Test {
     }
 
     function _args() internal view returns (bytes memory) {
-        return _argsFor(200, 3600); // 2% deviation, 1h staleness
+        return _argsFor(200, 3600, 3600); // 2% deviation, 1h staleness each
     }
 
-    function _argsFor(uint32 maxDeviationBps, uint32 maxStaleness) internal view returns (bytes memory) {
-        return abi.encodePacked(address(weth), address(usdc), address(ethFeed), address(usdcFeed), maxDeviationBps, maxStaleness);
+    function _argsFor(uint32 maxDeviationBps, uint32 staleness0, uint32 staleness1) internal view returns (bytes memory) {
+        return abi.encodePacked(address(weth), address(usdc), address(ethFeed), address(usdcFeed), maxDeviationBps, staleness0, staleness1);
     }
 
     function _ctx(address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut)

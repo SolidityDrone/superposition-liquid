@@ -16,18 +16,18 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
 
     AaveV3Adapter internal adapter;
     MockAavePool internal pool;
-    MockAToken internal aToken;
     MockToken internal usdc;
     MockToken internal weth;
     address internal maker;
     address internal taker;
 
     function setUp() public {
-        aToken = new MockAToken();
-        pool = new MockAavePool(address(aToken));
-        adapter = new AaveV3Adapter(address(pool));
+        pool = new MockAavePool();
         usdc = new MockToken("USDC", 18);
         weth = new MockToken("WETH", 18);
+        pool.registerAToken(address(usdc), new MockAToken());
+        pool.registerAToken(address(weth), new MockAToken());
+        adapter = new AaveV3Adapter(address(pool));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
     }
@@ -69,6 +69,8 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
     function test_scalesBothBalancesByExchangeRate() public {
         pool.setNormalizedIncome(address(usdc), 103 * RAY / 100);
         pool.setNormalizedIncome(address(weth), 105 * RAY / 100);
+        _seedSupply(address(usdc), 1e6);
+        _seedSupply(address(weth), 1e15);
 
         (uint256 balIn, uint256 balOut) = this._execExternal(4000e6, 100 ether, _opcodeArgs());
 
@@ -85,9 +87,16 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
 
     function test_roundsDown() public {
         pool.setNormalizedIncome(address(weth), 15 * RAY / 10); // rate = 1.5e18
+        _seedSupply(address(weth), 1e15);
         (, uint256 balOut) = this._execExternal(0, 1, _opcodeArgs());
 
         assertEq(balOut, 1); // 1.5 rounds down to 1
+    }
+
+    function _seedSupply(address asset, uint256 amount) internal {
+        MockToken(asset).mint(address(this), amount);
+        MockToken(asset).approve(address(adapter), type(uint256).max);
+        adapter.depositFor(address(this), asset, amount);
     }
 
     function test_argsTooShort_reverts() public {

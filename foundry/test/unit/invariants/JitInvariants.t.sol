@@ -24,6 +24,7 @@ contract JitInvariantsTest is Test {
     Aqua internal aqua;
     MockAavePool internal pool;
     MockAToken internal aToken;
+    MockAToken internal aTokenUsdc;
     MockToken internal weth;
     MockToken internal usdc;
     AaveV3Adapter internal adapter;
@@ -42,10 +43,13 @@ contract JitInvariantsTest is Test {
         taker = makeAddr("taker");
 
         aqua = new Aqua();
-        aToken = new MockAToken();
-        pool = new MockAavePool(address(aToken));
+        pool = new MockAavePool();
         weth = new MockToken("WETH", 18);
         usdc = new MockToken("USDC", 6);
+        aToken = new MockAToken();
+        pool.registerAToken(address(weth), aToken);
+        aTokenUsdc = new MockAToken();
+        pool.registerAToken(address(usdc), aTokenUsdc);
         adapter = new AaveV3Adapter(address(pool));
         makerConfig = new MakerConfig();
         router = new SupercazzolaRouter(
@@ -143,7 +147,7 @@ contract JitInvariantsTest is Test {
         // I2: lending-backed balance >= virtual balance (per token)
         (uint256 virtualIn,) = aqua.rawBalances(maker, address(router), strategyHash, address(usdc));
         (uint256 virtualOut,) = aqua.rawBalances(maker, address(router), strategyHash, address(weth));
-        uint256 realUsdc = adapter.yieldToUnderlying(address(usdc), aToken.balanceOf(maker));
+        uint256 realUsdc = adapter.yieldToUnderlying(address(usdc), aTokenUsdc.balanceOf(maker));
         uint256 realWeth = adapter.yieldToUnderlying(address(weth), aToken.balanceOf(maker));
         assertGe(realUsdc, virtualIn, "I2: real USDC < virtual");
         assertGe(realWeth, virtualOut, "I2: real WETH < virtual");

@@ -12,15 +12,20 @@ import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol"
 uint256 constant CHAINLINK_GUARD_XD = 35;
 
 library GuardArgsBuilder {
-    /// @dev Builds opcode args: token0 + token1 + feed0 + feed1 + maxDeviationBps + maxStaleness (88 bytes).
+    /// @dev Builds opcode args: token0 + token1 + feed0 + feed1 + maxDeviationBps + staleness0 + staleness1 (92 bytes).
     ///      Feeds are USD-quoted; they are mapped to tokenIn/tokenOut by address, so the guard
-    ///      works for both swap directions of the same strategy.
-    function build(address token0, address token1, address feed0, address feed1, uint32 maxDeviationBps, uint32 maxStalenessSeconds)
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(token0, token1, feed0, feed1, maxDeviationBps, maxStalenessSeconds);
+    ///      works for both swap directions of the same strategy. Per-feed staleness because
+    ///      stablecoin feeds legitimately update on long heartbeats (e.g. ~12h for USDC on Base).
+    function build(
+        address token0,
+        address token1,
+        address feed0,
+        address feed1,
+        uint32 maxDeviationBps,
+        uint32 staleness0Seconds,
+        uint32 staleness1Seconds
+    ) internal pure returns (bytes memory) {
+        return abi.encodePacked(token0, token1, feed0, feed1, maxDeviationBps, staleness0Seconds, staleness1Seconds);
     }
 }
 
@@ -40,24 +45,26 @@ contract ChainlinkGuardOpcode {
     /// @param args.feed0              | 20 bytes | Chainlink feed of token0 (USD-quoted)
     /// @param args.feed1              | 20 bytes | Chainlink feed of token1 (USD-quoted)
     /// @param args.maxDeviationBps    |  4 bytes | uint32, e.g. 200 = 2%
-    /// @param args.maxStalenessSeconds|  4 bytes | uint32, e.g. 3600
+    /// @param args.staleness0Seconds  |  4 bytes | uint32 max age of feed0, e.g. 3600
+    /// @param args.staleness1Seconds  |  4 bytes | uint32 max age of feed1
     function _chainlinkGuardXD(Context memory ctx, bytes calldata args) internal view {
-        if (args.length < 88) revert GuardArgsTooShort();
+        if (args.length < 92) revert GuardArgsTooShort();
 
         address token0 = address(bytes20(args.slice(0, 20)));
         address token1 = address(bytes20(args.slice(20, 40)));
         address feed0 = address(bytes20(args.slice(40, 60)));
         address feed1 = address(bytes20(args.slice(60, 80)));
         uint32 maxDeviationBps = uint32(bytes4(args.slice(80, 84)));
-        uint32 maxStalenessSeconds = uint32(bytes4(args.slice(84, 88)));
+        uint32 staleness0Seconds = uint32(bytes4(args.slice(84, 88)));
+        uint32 staleness1Seconds = uint32(bytes4(args.slice(88, 92)));
 
         if (ctx.swap.amountIn == 0 || ctx.swap.amountOut == 0) return;
 
         address feedIn = ctx.query.tokenIn == token0 ? feed0 : feed1;
         address feedOut = ctx.query.tokenIn == token0 ? feed1 : feed0;
 
-        _checkFresh(feedIn, maxStalenessSeconds);
-        _checkFresh(feedOut, maxStalenessSeconds);
+        _checkFresh(feedIn, ctx.query.tokenIn == token0 ? staleness0Seconds : staleness1Seconds);
+        _checkFresh(feedOut, ctx.query.tokenIn == token0 ? staleness1Seconds : staleness0Seconds);
 
         (, int256 answerIn,, ,) = AggregatorV3Interface(feedIn).latestRoundData();
         (, int256 answerOut,, ,) = AggregatorV3Interface(feedOut).latestRoundData();

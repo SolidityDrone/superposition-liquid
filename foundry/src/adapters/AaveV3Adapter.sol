@@ -5,17 +5,25 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@1inch/solidity-utils/contracts/libraries/SafeERC20.sol";
 
 import { IPool } from "@aave/core/interfaces/IPool.sol";
+import { IAToken } from "@aave/core/interfaces/IAToken.sol";
 import { DataTypes } from "@aave/core/protocol/libraries/types/DataTypes.sol";
 
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
 
 /// @title AaveV3Adapter
 /// @notice ILendingAdapter implementation for Aave v3.
-/// @dev Rate source is exclusively IPool.getReserveNormalizedIncome (decision B3.3 in SPEC.md).
+/// @dev All conversions use the *displayed* aToken unit (what `balanceOf` returns).
+///      On Aave v3.2+ markets balances are already index-accrued, so the displayed
+///      unit tracks underlying 1:1 and yield accrues as balance growth. On legacy
+///      markets the displayed unit is the scaled balance and the rate is the
+///      liquidity index. Both cases are covered by:
+///        rate = scaledTotalSupply * liquidityIndex / totalSupply
+///      (== 1e18 on v3.2+, == liquidityIndex on legacy).
 contract AaveV3Adapter is ILendingAdapter {
     using SafeERC20 for IERC20;
 
     uint256 internal constant RAY = 1e27;
+    uint256 internal constant WAD = 1e18;
 
     IPool public immutable AAVE_POOL;
 
@@ -32,22 +40,28 @@ contract AaveV3Adapter is ILendingAdapter {
     }
 
     function underlyingToYield(address underlying, uint256 amount) external view returns (uint256) {
-        return (amount * RAY + AAVE_POOL.getReserveNormalizedIncome(underlying) - 1)
-            / AAVE_POOL.getReserveNormalizedIncome(underlying);
+        uint256 rate = exchangeRate(underlying);
+        return (amount * WAD + rate - 1) / rate;
     }
 
     function yieldToUnderlying(address underlying, uint256 amount) external view returns (uint256) {
-        return amount * AAVE_POOL.getReserveNormalizedIncome(underlying) / RAY;
+        return amount * exchangeRate(underlying) / WAD;
     }
 
-    /// @notice Underlying per 1 aToken, 1e18 precision (ray scaled down by 1e9).
-    function exchangeRate(address underlying) external view returns (uint256) {
-        return AAVE_POOL.getReserveNormalizedIncome(underlying) / 1e9;
+    /// @notice Underlying per 1 displayed aToken, 1e18 precision (see contract docs).
+    function exchangeRate(address underlying) public view returns (uint256) {
+        DataTypes.ReserveData memory reserve = AAVE_POOL.getReserveData(underlying);
+        if (reserve.aTokenAddress == address(0)) return WAD;
+        uint256 scaledTotal = IAToken(reserve.aTokenAddress).scaledTotalSupply();
+        uint256 displayedTotal = IERC20(reserve.aTokenAddress).totalSupply();
+        if (scaledTotal == 0 || displayedTotal == 0) return uint256(reserve.liquidityIndex) / 1e9;
+        // underlying backing = scaledTotal * index / RAY; rate = backing * WAD / displayedTotal
+        return scaledTotal * uint256(reserve.liquidityIndex) * WAD / (displayedTotal * RAY);
     }
 
     /// @notice Withdraws underlying on behalf of maker.
-    /// Pulls the equivalent aTokens from the maker wallet (maker approved this adapter),
-    /// then withdraws from Aave sending real tokens to recipient.
+    /// Pulls the equivalent displayed aTokens from the maker wallet (maker approved this
+    /// adapter), then withdraws from Aave sending real tokens to recipient.
     function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external {
         address aToken = AAVE_POOL.getReserveData(underlying).aTokenAddress;
         uint256 aTokenAmount = this.underlyingToYield(underlying, underlyingAmount);
@@ -57,7 +71,7 @@ contract AaveV3Adapter is ILendingAdapter {
 
     /// @notice Deposits underlying on behalf of maker.
     /// Pulls tokens from the maker wallet (tokenIn arrives there after the swap),
-    /// supplies to Aave minting aTokens to the maker.
+    /// supplies to Aave minting displayed aTokens to the maker.
     function depositFor(address maker, address underlying, uint256 underlyingAmount) external {
         IERC20(underlying).safeTransferFrom(maker, address(this), underlyingAmount);
         IERC20(underlying).forceApprove(address(AAVE_POOL), underlyingAmount);

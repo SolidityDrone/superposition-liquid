@@ -2,18 +2,9 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
+import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-
-contract MockToken is ERC20 {
-    constructor(string memory name) ERC20(name, name) { }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
 
 contract AaveV3AdapterTest is Test {
     uint256 internal constant RAY = 1e27;
@@ -21,6 +12,7 @@ contract AaveV3AdapterTest is Test {
     AaveV3Adapter internal adapter;
     MockAavePool internal pool;
     MockAToken internal aToken;
+    MockAToken internal aTokenUsdc;
     MockToken internal usdc;
     MockToken internal weth;
 
@@ -28,11 +20,14 @@ contract AaveV3AdapterTest is Test {
     address internal recipient = makeAddr("recipient");
 
     function setUp() public {
+        pool = new MockAavePool();
+        usdc = new MockToken("USDC", 18);
+        weth = new MockToken("WETH", 18);
         aToken = new MockAToken();
-        pool = new MockAavePool(address(aToken));
+        pool.registerAToken(address(weth), aToken);
+        aTokenUsdc = new MockAToken();
+        pool.registerAToken(address(usdc), aTokenUsdc);
         adapter = new AaveV3Adapter(address(pool));
-        usdc = new MockToken("USDC");
-        weth = new MockToken("WETH");
     }
 
     function test_name_isAaveV3() public view {
@@ -74,7 +69,7 @@ contract AaveV3AdapterTest is Test {
         adapter.depositFor(maker, address(usdc), 10_000e6);
 
         assertEq(usdc.balanceOf(address(pool)), 10_000e6);
-        assertEq(aToken.balanceOf(maker), 10_000e6); // 1:1 at index 1.0
+        assertEq(aTokenUsdc.balanceOf(maker), 10_000e6); // 1:1 at index 1.0
     }
 
     function test_withdrawTo_burnsMakerATokensAndSendsUnderlyingToRecipient() public {
@@ -84,7 +79,7 @@ contract AaveV3AdapterTest is Test {
         usdc.approve(address(adapter), type(uint256).max);
         adapter.depositFor(maker, address(usdc), 100e6);
         // maker approves adapter for aToken spending (per approvals table)
-        aToken.approve(address(adapter), type(uint256).max);
+        aTokenUsdc.approve(address(adapter), type(uint256).max);
         vm.stopPrank();
 
         address router = makeAddr("router");
@@ -92,7 +87,7 @@ contract AaveV3AdapterTest is Test {
         adapter.withdrawTo(maker, address(usdc), 40e6, recipient);
 
         assertEq(usdc.balanceOf(recipient), 40e6);
-        assertEq(aToken.balanceOf(maker), 60e6);
+        assertEq(aTokenUsdc.balanceOf(maker), 60e6);
         assertEq(usdc.balanceOf(address(pool)), 60e6);
     }
 
@@ -101,7 +96,7 @@ contract AaveV3AdapterTest is Test {
         vm.startPrank(maker);
         usdc.approve(address(adapter), type(uint256).max);
         adapter.depositFor(maker, address(usdc), 100e6);
-        aToken.approve(address(adapter), type(uint256).max);
+        aTokenUsdc.approve(address(adapter), type(uint256).max);
         vm.stopPrank();
 
         // interest accrued: 100 underlying locked, index moves to 1.25 => 80 aTokens held
@@ -113,6 +108,6 @@ contract AaveV3AdapterTest is Test {
 
         // 100 underlying withdrawn costs 80 aTokens at index 1.25; 20 aTokens (≈25 underlying) remain
         assertEq(usdc.balanceOf(recipient), 100e6);
-        assertEq(aToken.balanceOf(maker), 20e6);
+        assertEq(aTokenUsdc.balanceOf(maker), 20e6);
     }
 }

@@ -4,19 +4,18 @@ pragma solidity 0.8.30;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { DataTypes } from "@aave/core/protocol/libraries/types/DataTypes.sol";
 
-/// @notice Minimal Aave-like pool mock for adapter unit tests.
-/// 1:1 aToken accounting with a configurable normalized income (ray) for rate tests.
+/// @notice Minimal Aave-like pool mock for adapter unit tests (legacy semantics:
+/// displayed == scaled, yield shows up as rate growth via a configurable index).
 contract MockAavePool {
-    address public immutable A_TOKEN;
-
     uint256 internal constant RAY = 1e27;
 
-    // asset => normalized income (ray); 1e27 == index of 1.0
+    mapping(address asset => MockAToken) public aTokens;
+    // asset => liquidity index (ray); 1e27 == 1.0
     mapping(address asset => uint256) public normalizedIncome;
     mapping(address asset => uint256) public poolBalance;
 
-    constructor(address aToken) {
-        A_TOKEN = aToken;
+    function registerAToken(address asset, MockAToken aToken) external {
+        aTokens[asset] = aToken;
     }
 
     function setNormalizedIncome(address asset, uint256 income) external {
@@ -25,12 +24,12 @@ contract MockAavePool {
 
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 /* referralCode */ ) external {
         ERC20(asset).transferFrom(msg.sender, address(this), amount);
-        MockAToken(A_TOKEN).mint(onBehalfOf, (amount * RAY) / _income(asset));
+        _aToken(asset).mint(onBehalfOf, (amount * RAY) / _income(asset));
         poolBalance[asset] += amount;
     }
 
     function withdraw(address asset, uint256 amount, address to) external returns (uint256) {
-        MockAToken(A_TOKEN).burn(msg.sender, (amount * RAY) / _income(asset));
+        _aToken(asset).burn(msg.sender, (amount * RAY) / _income(asset));
         poolBalance[asset] -= amount;
         ERC20(asset).transfer(to, amount);
         return amount;
@@ -40,17 +39,17 @@ contract MockAavePool {
         return _income(asset);
     }
 
-    function getReserveData(address /* asset */ ) external view returns (DataTypes.ReserveData memory) {
+    function getReserveData(address asset) external view returns (DataTypes.ReserveData memory) {
         return DataTypes.ReserveData({
             configuration: DataTypes.ReserveConfigurationMap(0),
-            liquidityIndex: 0,
+            liquidityIndex: uint128(_income(asset)),
             currentLiquidityRate: 0,
             variableBorrowIndex: 0,
             currentVariableBorrowRate: 0,
             currentStableBorrowRate: 0,
             lastUpdateTimestamp: 0,
             id: 0,
-            aTokenAddress: A_TOKEN,
+            aTokenAddress: address(aTokens[asset]),
             stableDebtTokenAddress: address(0),
             variableDebtTokenAddress: address(0),
             interestRateStrategyAddress: address(0),
@@ -64,10 +63,20 @@ contract MockAavePool {
         uint256 income = normalizedIncome[asset];
         return income == 0 ? RAY : income;
     }
+
+    function _aToken(address asset) internal view returns (MockAToken) {
+        MockAToken aToken = aTokens[asset];
+        return aToken;
+    }
 }
 
 contract MockAToken is ERC20 {
     constructor() ERC20("MockAToken", "maT") { }
+
+    /// @dev Legacy Aave semantics: displayed == scaled, so both are the raw supply.
+    function scaledTotalSupply() external view returns (uint256) {
+        return totalSupply();
+    }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);

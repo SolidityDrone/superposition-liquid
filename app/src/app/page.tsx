@@ -1,4 +1,5 @@
 import TileBackground from "@/components/TileBackground";
+import FillDiagram from "@/components/FillDiagram";
 import {
   AaveLogo, MorphoLogo, EulerLogo, LidoLogo, PendleLogo, StargateLogo, CurveLogo,
   LendingIcon, VaultIcon, StakingIcon, FixedIncomeIcon, BridgeIcon,
@@ -225,6 +226,11 @@ export default function Page() {
                 </div>
               ))}
             </div>
+            <div className="diagram-head">
+              <div className="diagram-title">One fill, end to end — the Aave maker, on a Base fork</div>
+              <div className="diagram-sub">USDC comes in, wETH goes out. The dotted ring is the money path.</div>
+            </div>
+            <FillDiagram />
           </div>
         </div>
       </section>

@@ -205,6 +205,63 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(90deg, var(--bg) 0%, rgba(4, 7, 12, 0.94) 45%, rgba(4, 7, 12, 0.55) 75%, rgba(4, 7, 12, 0.12) 100%);
 }
 
+/* ---------- fill diagram ---------- */
+.diagram-head { margin: 56px 0 0; }
+.diagram-title { font-size: 16px; font-weight: 620; }
+.diagram-sub { margin-top: 6px; color: var(--text-dim); font-size: 13.5px; font-family: var(--mono); }
+
+/* ---------- fill diagram ---------- */
+.diagram-wrap {
+  margin-top: 52px;
+  border: 1px solid var(--border); border-radius: 20px;
+  background: var(--bg-raise);
+  padding: 26px 20px;
+  overflow-x: auto;
+}
+.diagram {
+  position: relative;
+  min-width: 720px;
+  aspect-ratio: 900 / 520;
+  font-family: var(--sans);
+}
+.d-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.flow-line {
+  stroke: var(--border-bright);
+  stroke-width: 1.6;
+  stroke-dasharray: 1 8;
+  stroke-linecap: round;
+  fill: none;
+  animation: ants 1.1s linear infinite;
+}
+@keyframes ants { to { stroke-dashoffset: -9; } }
+.d-node {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 9px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: 12px; padding: 10px 14px;
+  z-index: 2; white-space: nowrap;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.d-node .n-name {
+  font-size: 11.5px; font-weight: 620; letter-spacing: 0.02em;
+  display: flex; align-items: center; gap: 7px;
+}
+.d-node .n-sub { font-size: 9.5px; color: var(--text-dim); font-family: var(--mono); margin-top: 2px; }
+.d-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.d-step {
+  position: absolute; transform: translate(-50%, -50%);
+  font-family: var(--mono); font-size: 10px; color: var(--accent);
+  background: rgba(4, 7, 12, 0.9);
+  border: 1px solid var(--border-bright);
+  border-radius: 999px; padding: 4px 10px;
+  z-index: 3; white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-line { animation: none; }
+}
+
 @media (max-width: 960px) {
   .section-grid { grid-template-columns: 1fr; gap: 36px; }
   .sec-label { position: static; }

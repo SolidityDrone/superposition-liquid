@@ -1,4 +1,8 @@
 import TileBackground from "@/components/TileBackground";
+import {
+  AaveLogo, MorphoLogo, EulerLogo, LidoLogo, PendleLogo, StargateLogo, CurveLogo,
+  LendingIcon, VaultIcon, StakingIcon, FixedIncomeIcon, BridgeIcon,
+} from "@/components/logos";
 
 /* ---------- data ---------- */
 
@@ -9,12 +13,12 @@ const STATS = [
   { num: "13", label: "chains ready (Aqua set)" },
 ];
 
-type Prot = { name: string; color: string; state: string };
+type Prot = { name: string; color: string; state: string; Logo: (p: { size?: number }) => React.JSX.Element };
 
 const TYPOLOGIES: {
   kind: string;
   name: string;
-  glyph: string;
+  Icon: (p: { size?: number }) => React.JSX.Element;
   color: string;
   desc: string;
   prots: Prot[];
@@ -22,52 +26,58 @@ const TYPOLOGIES: {
   {
     kind: "ADAPTER · AAVEV3",
     name: "Lending",
-    glyph: "A",
+    Icon: LendingIcon,
     color: "#8247e5",
     desc: "Capital supplied into Aave v3 earning variable supply APY. Handles both the legacy index-based aToken model and the v3.2 displayed-balance model.",
     prots: [
-      { name: "Aave v3", color: "#b6509e", state: "fork-proven" },
-      { name: "aWETH / aUSDC", color: "#2ca8e0", state: "Base ✅" },
+      { name: "Aave v3", color: "#b6509e", state: "fork-proven", Logo: AaveLogo },
+      { name: "aWETH / aUSDC", color: "#2ca8e0", state: "Base ✅", Logo: AaveLogo },
     ],
   },
   {
     kind: "ADAPTER · ERC-4626",
     name: "Vaults",
-    glyph: "V",
+    Icon: VaultIcon,
     color: "#1b5cff",
     desc: "One generic adapter covers any ERC-4626 vault — curated lending vaults with their own fee and risk models, discovered per chain.",
     prots: [
-      { name: "Morpho", color: "#1b5cff", state: "fork-proven" },
-      { name: "Euler v2", color: "#14aeea", state: "fork-proven" },
-      { name: "Gauntlet / Steakhouse", color: "#8fa39b", state: "Base ✅" },
+      { name: "Morpho", color: "#1b5cff", state: "fork-proven", Logo: MorphoLogo },
+      { name: "Euler v2", color: "#14aeea", state: "fork-proven", Logo: EulerLogo },
+      { name: "Gauntlet / Steakhouse", color: "#8fa39b", state: "Base ✅", Logo: MorphoLogo },
     ],
   },
   {
     kind: "ADAPTER · WSTETH",
     name: "Liquid staking",
-    glyph: "L",
+    Icon: StakingIcon,
     color: "#00a3ff",
     desc: "Capital in Lido wstETH — appreciates vs ETH through staking yield. JIT unwrap + a real Curve swap leg delivers WETH atomically.",
-    prots: [{ name: "Lido wstETH", color: "#00a3ff", state: "fork-proven" }, { name: "Curve", color: "#f5d020", state: "swap leg" }],
+    prots: [
+      { name: "Lido wstETH", color: "#00a3ff", state: "fork-proven", Logo: LidoLogo },
+      { name: "Curve", color: "#f5d020", state: "swap leg", Logo: CurveLogo },
+    ],
   },
   {
     kind: "ADAPTER · PENDLE",
     name: "Fixed income",
-    glyph: "P",
+    Icon: FixedIncomeIcon,
     color: "#7b61ff",
     desc: "Capital in Pendle PT. Expired markets redeem 1:1 with zero swap legs; active markets trade at the implied-yield discount and appreciate toward par in real time.",
     prots: [
-      { name: "Pendle PT", color: "#7b61ff", state: "fork-proven ×2" },
-      { name: "PYLpOracle", color: "#5a6b64", state: "TWAP rate" },
+      { name: "Pendle PT", color: "#7b61ff", state: "fork-proven ×2", Logo: PendleLogo },
+      { name: "PYLpOracle", color: "#5a6b64", state: "TWAP rate", Logo: PendleLogo },
     ],
   },
   {
     kind: "ADAPTER · STARGATE",
     name: "Bridge liquidity",
-    glyph: "S",
+    Icon: BridgeIcon,
     color: "#4c6fff",
     desc: "Capital staked in a Stargate V2 pool — the maker provides the liquidity the protocol uses for cross-chain swaps and earns its reward stream.",
-    prots: [{ name: "Stargate V2", color: "#4c6fff", state: "fork-proven" }, { name: "LayerZero", color: "#8fa39b", state: "under the hood" }],
+    prots: [
+      { name: "Stargate V2", color: "#4c6fff", state: "fork-proven", Logo: StargateLogo },
+      { name: "LayerZero", color: "#8fa39b", state: "under the hood", Logo: StargateLogo },
+    ],
   },
 ];
 
@@ -204,7 +214,7 @@ export default function Page() {
               <div className="typo-row" key={t.kind}>
                 <div className="typo-type">
                   <div className="typo-icon" style={{ background: `${t.color}1a`, color: t.color, border: `1px solid ${t.color}33` }}>
-                    {t.glyph}
+                    <t.Icon size={20} />
                   </div>
                   <div>
                     <div className="name">{t.name}</div>
@@ -215,7 +225,7 @@ export default function Page() {
                 <div className="typo-prots">
                   {t.prots.map((pr) => (
                     <span className="prot" key={pr.name}>
-                      <span className="dot" style={{ background: pr.color }} />
+                      <pr.Logo size={14} />
                       {pr.name}
                       <span className="state">{pr.state}</span>
                     </span>

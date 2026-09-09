@@ -24,7 +24,11 @@ swap() on SupercazzolaRouter (modified SwapVM redeploy — allowed by 1inch rule
 ```
 
 The maker wallet only holds tokens for the duration of one transaction — idle balance is
-always zero, 100% of capital sits in aWETH/aUSDC earning Aave supply APY on top of swap fees.
+always zero, 100% of capital sits in the lending protocol earning supply APY on top of swap fees.
+
+The adapter layer is pluggable per maker: v0.1 ships `AaveV3Adapter` plus a generic
+`ERC4626Adapter` (Morpho MetaMorpho, Euler v2, any 4626 vault). A delta-neutral borrow-based
+profile is designed and deferred to v0.2 (requires health-factor management).
 
 ## Repo layout
 
@@ -34,6 +38,7 @@ foundry/
     SupercazzolaRouter.sol        # SwapVM fork + hooks + custom opcode table
     config/MakerConfig.sol        # per-maker vault config (msg.sender-owned)
     adapters/AaveV3Adapter.sol    # ILendingAdapter impl (Aave v3, v3.2+ aware)
+    adapters/ERC4626Adapter.sol   # generic adapter: Morpho (MetaMorpho), Euler v2, any 4626 vault
     interfaces/                   # ILendingAdapter, AggregatorV3Interface
     opcodes/
       YieldAdjustedRateOpcode.sol # byte 34: balances * lending exchange rate

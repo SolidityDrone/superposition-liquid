@@ -1,97 +1,221 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { AaveLogo } from "@/components/logos";
 
 /**
- * The end-to-end cycle of one fill (Aave maker example) as a living diagram.
- * Geometry is laid out on a 900x520 grid with separate lanes per directed edge:
- * the Aave<->Maker pair runs on two parallel lanes (deposit lane x~158,
- * JIT-delivery lane x~200), so nothing overlaps. Token packets travel the loop
- * via SMIL animateMotion: USDC in (edges 1-2-3), WETH out (edges 4-5).
+ * The fill cycle as a narrated ring: five actors on a pentagon, numbered lane
+ * badges, and ONE coin packet that walks the loop pausing at every actor —
+ * USDC in (taker -> router -> maker -> Aave) where it becomes the WETH
+ * delivery (Aave -> maker -> taker). The active legend entry lights up in
+ * sync. Explanations live in the legend, not floating on the map.
  */
 
 const NODES = [
-  { key: "taker", x: 700, y: 55, name: "TAKER", sub: "pays USDC · gets WETH", dot: "#8ba3b8" },
-  { key: "aqua", x: 815, y: 255, name: "1INCH AQUA", sub: "virtual balances", dot: "#4cc2ff" },
-  { key: "router", x: 470, y: 445, name: "SUPERPOSITION ROUTER", sub: "hooks + opcodes", dot: "#4cc2ff" },
-  { key: "aave", x: 80, y: 330, name: "AAVE v3", sub: "aWETH · aUSDC", dot: "#b6509e" },
-  { key: "maker", x: 235, y: 70, name: "MAKER", sub: "wallet = pass-through", dot: "#e6f0fa" },
+  { key: "taker", x: 760, y: 70, name: "TAKER", sub: "pays USDC · gets WETH", dot: "#8ba3b8" },
+  { key: "aqua", x: 880, y: 300, name: "1INCH AQUA", sub: "virtual balances", dot: "#4cc2ff" },
+  { key: "router", x: 480, y: 500, name: "SUPERPOSITION ROUTER", sub: "hooks + opcodes", dot: "#4cc2ff" },
+  { key: "aave", x: 75, y: 360, name: "AAVE v3", sub: "aWETH · aUSDC", dot: "#b6509e" },
+  { key: "maker", x: 190, y: 55, name: "MAKER", sub: "wallet = pass-through", dot: "#e6f0fa" },
 ];
 
-const STEPS = [
-  { x: 640, y: 250, label: "1 · taker pays USDC" },
-  { x: 285, y: 250, label: "2 · Aqua.push → maker" },
-  { x: 470, y: 68, label: "4 · delivered via Aqua.pull" },
+// one STRAIGHT lane per directed edge, generously spaced on the pentagon
+const LANES = [
+  { d: "M 725 100 L 552 458", stage: 1, bx: 640, by: 285 },
+  { d: "M 425 468 L 228 100", stage: 2, bx: 320, by: 290 },
+  { d: "M 160 90 L 105 318", stage: 3, bx: 132, by: 204 },
+  { d: "M 122 86 L 60 300", stage: 4, bx: 88, by: 192 },
+  { d: "M 228 50 L 722 58", stage: 4, bx: 475, by: 24 },
 ];
+
+const LEGEND = [
+  { stage: 1, label: "Taker pays USDC" },
+  { stage: 2, label: "Aqua.push → maker" },
+  { stage: 3, label: "Hooks: deposit → Aave" },
+  { stage: 4, label: "JIT: aWETH → WETH, delivered" },
+];
+
+const SEGMENTS = LANES; // same geometry for the walking packet
+
+const MOVE_MS = 1000;
+const PAUSE_MS = 600;
+const TAKER_PAUSE_MS = 950;
 
 export default function FillDiagram() {
+  const packetRef = useRef<SVGGElement>(null);
+  const coreRef = useRef<SVGCircleElement>(null);
+  const symRef = useRef<SVGTextElement>(null);
+  const laneRefs = useRef<(SVGPathElement | null)[]>([]);
+  const [active, setActive] = useState(1);
+
+  useEffect(() => {
+    const packet = packetRef.current;
+    const core = coreRef.current;
+    const sym = symRef.current;
+    if (!packet || !core || !sym) return;
+
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const laneLens = LANES.map((l, i) => {
+      const el = laneRefs.current[i];
+      return el ? el.getTotalLength() : 500;
+    });
+
+    type Slot = { kind: "move" | "pause"; lane: number; dur: number };
+    const timeline: Slot[] = [];
+    LANES.forEach((l, i) => {
+      timeline.push({ kind: "move", lane: i, dur: reduced ? MOVE_MS * 2.4 : MOVE_MS });
+      timeline.push({
+        kind: "pause",
+        lane: i,
+        dur: i === LANES.length - 1 ? TAKER_PAUSE_MS : PAUSE_MS,
+      });
+    });
+    const totalDur = timeline.reduce((a, s) => a + s.dur, 0);
+
+    function setCoin(x: number, y: number, s: "$" | "Ξ") {
+      packet!.setAttribute("transform", `translate(${x} ${y})`);
+      const usdc = s === "$";
+      core!.setAttribute("fill", usdc ? "#0c1826" : "#0c1826");
+      core!.setAttribute("stroke", usdc ? "#4cc2ff" : "#e6f0fa");
+      if (sym!.textContent !== s) sym!.textContent = s;
+      sym!.setAttribute("fill", usdc ? "#4cc2ff" : "#e6f0fa");
+    }
+
+    let vt = 0;
+    let last = performance.now();
+    let currentStage = 1;
+    let currentSym: "$" | "Ξ" = "$";
+    let warned = false;
+
+    function frame(now: number) {
+      try {
+        const dt = Math.min(now - last, 100);
+        last = now;
+        vt = (vt + dt) % totalDur;
+
+        let acc = 0;
+        let slot: Slot = timeline[0];
+        let slotT = 0;
+        for (const s of timeline) {
+          if (vt < acc + s.dur) {
+            slot = s;
+            slotT = vt - acc;
+            break;
+          }
+          acc += s.dur;
+        }
+
+        if (slot.kind === "move") {
+          const lanePath = laneRefs.current[slot.lane];
+          const len = laneLens[slot.lane];
+          if (lanePath && len > 0) {
+            const p = lanePath.getPointAtLength(len * (slotT / slot.dur));
+            packet!.setAttribute("transform", `translate(${p.x} ${p.y})`);
+          }
+        }
+
+        const stage = LANES[slot.lane].stage;
+        if (stage !== currentStage) {
+          currentStage = stage;
+          setActive(stage);
+        }
+
+        // identity switch at the anchors
+        if (slot.kind === "pause" && slot.lane === 2 && currentSym !== "Ξ") {
+          currentSym = "Ξ";
+          setCoin(75, 360, "Ξ");
+        }
+        if (slot.kind === "pause" && slot.lane === LANES.length - 1 && currentSym !== "$") {
+          currentSym = "$";
+          setCoin(760, 70, "$");
+        }
+      } catch (err) {
+        if (!warned) {
+          warned = true;
+          console.warn("[fill-diagram] frame error", err);
+        }
+      }
+    }
+
+    let raf = requestAnimationFrame(function loop(now) {
+      frame(now);
+      raf = requestAnimationFrame(loop);
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
     <div className="diagram-wrap">
       <div className="diagram">
-        <svg className="d-svg" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet">
+        <svg className="d-svg" viewBox="0 0 960 560" preserveAspectRatio="xMidYMid meet">
           <defs>
             <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M0 0L8 4L0 8" fill="none" stroke="#2a4258" strokeWidth="1.4" />
             </marker>
           </defs>
 
-          {/* dotted connectors — one lane per directed edge, no overlaps */}
-          {/* 1 · taker -> router (right lane) */}
-          <path className="flow-line" d="M668 92 Q 630 265 505 402" markerEnd="url(#arrow)" />
-          {/* 2 · router -> maker (inner right lane) */}
-          <path className="flow-line" d="M432 410 Q 330 280 262 108" markerEnd="url(#arrow)" />
-          {/* 3 · maker -> aave (deposit lane, x~158) */}
-          <path className="flow-line" d="M210 108 Q 158 195 125 288" markerEnd="url(#arrow)" />
-          {/* 4 · aave -> maker (JIT delivery lane, x~200) */}
-          <path className="flow-line" d="M95 285 Q 200 198 218 112" markerEnd="url(#arrow)" />
-          {/* 5 · maker -> taker (top arc) */}
-          <path className="flow-line" d="M272 62 Q 468 8 663 53" markerEnd="url(#arrow)" />
+          {/* dotted lanes with arrows */}
+          {LANES.map((l, i) => (
+            <path
+              key={i}
+              ref={(el) => {
+                laneRefs.current[i] = el;
+              }}
+              className="flow-line"
+              d={l.d}
+              markerEnd="url(#arrow)"
+            />
+          ))}
 
-          {/* packet guides (invisible) */}
-          <path id="usdc-path" fill="none" stroke="none" d="M668 92 Q 630 265 505 402 Q 330 280 262 108 Q 158 195 125 288" />
-          <path id="weth-path" fill="none" stroke="none" d="M95 285 Q 200 198 218 112 Q 470 5 663 53" />
+          {/* numbered lane badges */}
+          {LANES.map((l, i) => (
+            <g key={`b${i}`}>
+              <circle
+                cx={l.bx}
+                cy={l.by}
+                r="9.5"
+                fill={active === l.stage ? "rgba(76,194,255,0.14)" : "#0a1018"}
+                stroke={active === l.stage ? "#4cc2ff" : "#2a4258"}
+                strokeWidth="1.2"
+              />
+              <text
+                x={l.bx}
+                y={l.by + 3}
+                textAnchor="middle"
+                fontSize="8.5"
+                fontFamily="var(--mono)"
+                fontWeight="700"
+                fill={active === l.stage ? "#4cc2ff" : "#63788c"}
+              >
+                {l.stage}
+              </text>
+            </g>
+          ))}
 
-          {/* USDC packet: taker -> router -> maker -> aave */}
-          <g>
-            <circle r="11" fill="rgba(76,194,255,0.16)" />
-            <circle r="5.5" fill="#4cc2ff" />
-            <text fontSize="7" fill="#031018" fontWeight="700" textAnchor="middle" dy="2.4">$</text>
-            <animateMotion dur="7s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
-              <mpath href="#usdc-path" />
-            </animateMotion>
-          </g>
-
-          {/* WETH packet: aave -> maker -> taker (counter-phase) */}
-          <g>
-            <circle r="11" fill="rgba(230,240,250,0.14)" />
-            <circle r="5.5" fill="#e6f0fa" />
-            <text fontSize="7" fill="#031018" fontWeight="700" textAnchor="middle" dy="2.4">Ξ</text>
-            <animateMotion dur="7s" begin="-2.6s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
-              <mpath href="#weth-path" />
-            </animateMotion>
+          {/* the coin packet — badge-style, carries the asset symbol */}
+          <g ref={packetRef} transform="translate(760 70)">
+            <circle r="13" fill="#0c1826" stroke="#4cc2ff" strokeWidth="1.6" />
+            <text
+              ref={symRef}
+              fontSize="10"
+              fontWeight="800"
+              textAnchor="middle"
+              dy="3.4"
+              fill="#4cc2ff"
+              fontFamily="var(--mono)"
+            >
+              $
+            </text>
           </g>
         </svg>
-
-        {/* step labels — placed clear of every lane */}
-        <span className="d-step" style={{ left: `${(640 / 900) * 100}%`, top: `${(250 / 520) * 100}%` }}>
-          1 · taker pays USDC
-        </span>
-        <span className="d-step" style={{ left: `${(285 / 900) * 100}%`, top: `${(250 / 520) * 100}%` }}>
-          2 · Aqua.push → maker
-        </span>
-        <span className="d-step" style={{ left: `${(470 / 900) * 100}%`, top: `${(68 / 520) * 100}%` }}>
-          4 · delivered via Aqua.pull
-        </span>
-
-        {/* the two-lane pair gets its own margin label */}
-        <div className="d-step d-step-left">
-          3 · hooks:<br />deposit ⇄ JIT deliver
-        </div>
 
         {/* node cards */}
         {NODES.map((n) => (
           <div
             className="d-node"
             key={n.key}
-            style={{ left: `${(n.x / 900) * 100}%`, top: `${(n.y / 520) * 100}%` }}
+            style={{ left: `${(n.x / 960) * 100}%`, top: `${(n.y / 560) * 100}%` }}
           >
             <span className="d-dot" style={{ background: n.dot }} />
             <div>
@@ -102,6 +226,19 @@ export default function FillDiagram() {
               <div className="n-sub">{n.sub}</div>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* legend — the explanations live here, synced with the packet */}
+      <div className="d-legend">
+        {LEGEND.map((l) => (
+          <span
+            className={active === l.stage ? "d-leg active" : "d-leg"}
+            key={l.stage}
+          >
+            <span className="d-leg-n">{l.stage}</span>
+            {l.label}
+          </span>
         ))}
       </div>
     </div>

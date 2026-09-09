@@ -220,8 +220,8 @@ a { color: inherit; text-decoration: none; }
 }
 .diagram {
   position: relative;
-  min-width: 720px;
-  aspect-ratio: 900 / 520;
+  min-width: 680px;
+  aspect-ratio: 960 / 560;
   font-family: var(--sans);
 }
 .d-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -258,8 +258,14 @@ a { color: inherit; text-decoration: none; }
   z-index: 3; white-space: nowrap;
 }
 .d-step-left {
-  left: 10px !important; top: 185px !important; transform: none;
+  left: 10px !important; top: 178px !important; transform: none;
   border-radius: 10px; line-height: 1.5; text-align: left;
+}
+.d-step.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(76, 194, 255, 0.08);
+  box-shadow: 0 0 18px rgba(76, 194, 255, 0.12);
 }
 
 @media (prefers-reduced-motion: reduce) {

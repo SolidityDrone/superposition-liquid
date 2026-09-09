@@ -31,4 +31,9 @@ interface ILendingAdapter {
     /// `maker`. Pulls the tokens from the maker wallet — maker must have approved this
     /// adapter for underlying spending.
     function depositFor(address maker, address underlying, uint256 underlyingAmount) external;
+
+    /// @notice Simulates an actual withdrawal: the underlying amount that can really be
+    /// withdrawn for `maker` right now. Capped by BOTH the maker's position and the
+    /// protocol's available liquidity (pool cash / vault maxWithdraw).
+    function maxWithdrawable(address maker, address underlying) external view returns (uint256);
 }

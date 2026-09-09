@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Calldata } from "@1inch/solidity-utils/contracts/libraries/Calldata.sol";
 
 import { Context } from "@1inch/swap-vm/libs/VM.sol";
@@ -19,9 +18,9 @@ library CapitalArgsBuilder {
 }
 
 /// @title MakerCapitalGuardOpcode
-/// @notice Makes quote() a complete fill-oracle: reverts unless the maker's REAL
-///         lending-backed capital (aTokens / vault shares, valued in underlying terms
-///         at the live rate) covers the amount the maker must deliver.
+/// @notice Makes quote() a complete fill-oracle: reverts unless an ACTUAL withdrawal
+///         of amountOut would succeed for the maker right now (simulated via the
+///         adapter: maker position AND protocol liquidity, not just balanceOf).
 /// @dev Quote()/swap() share the same runLoop, so a quote that passes guarantees the
 ///      capital check passes at swap time too (modulo state changes between the two).
 contract MakerCapitalGuardOpcode {
@@ -42,8 +41,8 @@ contract MakerCapitalGuardOpcode {
 
         if (ctx.swap.amountOut == 0) return;
 
-        address yieldTokenOut = ILendingAdapter(adapter).yieldToken(underlyingOut);
-        uint256 available = ILendingAdapter(adapter).yieldToUnderlying(underlyingOut, IERC20(yieldTokenOut).balanceOf(ctx.query.maker));
+        // simulated withdrawal: min(maker position, protocol liquidity) — see ILendingAdapter
+        uint256 available = ILendingAdapter(adapter).maxWithdrawable(ctx.query.maker, underlyingOut);
         if (available < ctx.swap.amountOut) {
             revert MakerCapitalInsufficient(available, ctx.swap.amountOut);
         }

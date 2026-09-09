@@ -6,7 +6,7 @@ import { Test } from "forge-std/Test.sol";
 import { Context, VM, SwapQuery, SwapRegisters } from "@1inch/swap-vm/libs/VM.sol";
 import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataPtr.sol";
 
-import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
+import { MockAavePool, MockAToken, MockDebtToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { MakerCapitalGuardOpcode, CapitalArgsBuilder } from "src/opcodes/MakerCapitalGuardOpcode.sol";
@@ -27,6 +27,8 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         aWethToken = new MockAToken();
         pool.registerAToken(address(weth), aWethToken);
         pool.registerAToken(address(usdc), new MockAToken());
+        pool.registerDebtToken(address(weth), new MockDebtToken());
+        pool.registerDebtToken(address(usdc), new MockDebtToken());
         adapter = new AaveV3Adapter(address(pool));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
@@ -97,6 +99,19 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         vm.stopPrank();
 
         vm.expectRevert(abi.encodeWithSelector(MakerCapitalInsufficient.selector, 0, 40e18));
+        this._execExternal(address(usdc), address(weth), 40e18, _args());
+    }
+
+    /// maker balance is fine but the pool is lent out: simulated withdrawal caps it
+    function test_revertsWhenPoolLiquidityCapsWithdrawal() public {
+        weth.mint(maker, 100e18);
+        vm.startPrank(maker);
+        weth.approve(address(adapter), type(uint256).max);
+        adapter.depositFor(maker, address(weth), 100e18);
+        vm.stopPrank();
+        pool.simulateDebt(address(weth), 95e18); // only 5 WETH cash left
+
+        vm.expectRevert(abi.encodeWithSelector(MakerCapitalInsufficient.selector, 5e18, 40e18));
         this._execExternal(address(usdc), address(weth), 40e18, _args());
     }
 

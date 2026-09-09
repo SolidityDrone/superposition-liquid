@@ -59,6 +59,12 @@ contract ERC4626Adapter is ILendingAdapter {
         vaultOf[underlying].withdraw(underlyingAmount, recipient, maker);
     }
 
+    /// @notice Simulated withdrawal: the vault's own maxWithdraw (4626 standard),
+    /// which accounts for vault liquidity, caps and pause states.
+    function maxWithdrawable(address maker, address underlying) external view returns (uint256) {
+        return vaultOf[underlying].maxWithdraw(maker);
+    }
+
     /// @notice Deposits underlying on behalf of maker: pulls tokens from the maker
     ///         wallet (tokenIn arrives there after the swap), deposits into the vault
     ///         minting shares to the maker.

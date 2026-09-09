@@ -10,12 +10,24 @@ contract MockAavePool {
     uint256 internal constant RAY = 1e27;
 
     mapping(address asset => MockAToken) public aTokens;
+    mapping(address asset => MockDebtToken) public debtTokens;
+    mapping(address asset => uint256) public simulatedDebt;
     // asset => liquidity index (ray); 1e27 == 1.0
     mapping(address asset => uint256) public normalizedIncome;
     mapping(address asset => uint256) public poolBalance;
 
     function registerAToken(address asset, MockAToken aToken) external {
         aTokens[asset] = aToken;
+    }
+
+    function registerDebtToken(address asset, MockDebtToken debtToken) external {
+        debtTokens[asset] = debtToken;
+    }
+
+    /// @notice simulates borrowers: reduces the pool's withdrawable cash
+    function simulateDebt(address asset, uint256 amount) external {
+        simulatedDebt[asset] += amount;
+        debtTokens[asset].mint(address(1), amount);
     }
 
     function setNormalizedIncome(address asset, uint256 income) external {
@@ -50,7 +62,7 @@ contract MockAavePool {
             lastUpdateTimestamp: 0,
             id: 0,
             aTokenAddress: address(aTokens[asset]),
-            stableDebtTokenAddress: address(0),
+            stableDebtTokenAddress: address(debtTokens[asset]),
             variableDebtTokenAddress: address(0),
             interestRateStrategyAddress: address(0),
             accruedToTreasury: 0,
@@ -67,6 +79,14 @@ contract MockAavePool {
     function _aToken(address asset) internal view returns (MockAToken) {
         MockAToken aToken = aTokens[asset];
         return aToken;
+    }
+}
+
+contract MockDebtToken is ERC20 {
+    constructor() ERC20("MockDebtToken", "mDebt") { }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
     }
 }
 

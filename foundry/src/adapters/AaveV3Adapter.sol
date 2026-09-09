@@ -69,6 +69,20 @@ contract AaveV3Adapter is ILendingAdapter {
         AAVE_POOL.withdraw(underlying, underlyingAmount, recipient);
     }
 
+    /// @notice Simulated withdrawal: min(maker position, pool cash).
+    /// Pool cash = supplied (underlying-equivalent) - debt - unbacked.
+    function maxWithdrawable(address maker, address underlying) external view returns (uint256) {
+        DataTypes.ReserveData memory reserve = AAVE_POOL.getReserveData(underlying);
+        if (reserve.aTokenAddress == address(0)) return 0;
+        uint256 position = this.yieldToUnderlying(underlying, IERC20(reserve.aTokenAddress).balanceOf(maker));
+        uint256 supplied = this.yieldToUnderlying(underlying, IERC20(reserve.aTokenAddress).totalSupply());
+        uint256 debt;
+        if (reserve.stableDebtTokenAddress != address(0)) debt += IERC20(reserve.stableDebtTokenAddress).totalSupply();
+        if (reserve.variableDebtTokenAddress != address(0)) debt += IERC20(reserve.variableDebtTokenAddress).totalSupply();
+        uint256 cash = supplied > debt + uint256(reserve.unbacked) ? supplied - debt - uint256(reserve.unbacked) : 0;
+        return position < cash ? position : cash;
+    }
+
     /// @notice Deposits underlying on behalf of maker.
     /// Pulls tokens from the maker wallet (tokenIn arrives there after the swap),
     /// supplies to Aave minting displayed aTokens to the maker.

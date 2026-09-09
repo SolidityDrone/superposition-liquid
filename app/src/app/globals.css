@@ -252,10 +252,14 @@ a { color: inherit; text-decoration: none; }
 .d-step {
   position: absolute; transform: translate(-50%, -50%);
   font-family: var(--mono); font-size: 10px; color: var(--accent);
-  background: rgba(4, 7, 12, 0.9);
+  background: rgba(4, 7, 12, 0.92);
   border: 1px solid var(--border-bright);
   border-radius: 999px; padding: 4px 10px;
   z-index: 3; white-space: nowrap;
+}
+.d-step-left {
+  left: 10px !important; top: 185px !important; transform: none;
+  border-radius: 10px; line-height: 1.5; text-align: left;
 }
 
 @media (prefers-reduced-motion: reduce) {

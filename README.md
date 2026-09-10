@@ -48,43 +48,117 @@ The adapter layer is the product: any yield protocol plugs in per-maker, and the
 Same AMM, same hooks, same position surface — the maker picks their risk profile by
 pointing `MakerConfig` at an adapter.
 
-## How it works
+## Architecture
 
-**The router** — a modified SwapVM redeploy (explicitly allowed by the 1inch bounty
-rules; the only way to run custom instructions). It inherits the deployed v1.0.2 stack
-and **appends three opcodes** at the end of the dispatch table (append-only, so all
-existing opcodes keep their indices):
+**Superposition does not implement new pricing curves.** It is a meta-layer on
+top of SwapVM: two composable layers that sit above any SwapVM strategy —
+**capital adapters** (JIT withdraw/deposit hooks backing liquidity with
+yield-bearing protocols) and **meta-opcodes** (oracle-anchored guards and
+balance adjustments that compose with any pricing opcode). The pricing curve
+is explicitly out of scope: makers ship `xyk`, curved, flat-price or custom
+curves, and Superposition wraps around all of them without modifying them.
 
-| Byte | Opcode | What it does |
+```
+        Meta-Opcodes        (oracle guards, yield-rate scaling, capital checks)
+              ↓
+   [Any SwapVM pricing opcode - xyk, curved, flat, custom]
+              ↓
+        Capital Adapters    (Aave, Morpho/Euler, Stargate, Pendle, Lido)
+              ↓
+        Maker's wallet      (always in yield-bearing tokens, never idle)
+```
+
+### Layer 1 — Capital Adapters
+
+Every maker configures, per token, which protocol holds their capital — a
+one-registry lookup the hooks perform at fill time:
+
+```solidity
+struct SideConfig {
+    address underlying;   // e.g. WETH, USDC
+    address adapter;      // the protocol holding THIS side's capital
+    AdapterKind kind;     // AaveV3 | ERC4626 | Stargate | PendlePT
+    bool autoManaged;     // JIT-deploy on receive, JIT-withdraw on send
+}
+```
+
+| Adapter | Protocol | Capital held |
 |---|---|---|
-| 34 | `YieldAdjustedRateXD` | scales the swap registers by `rate(now)/rate(ship)` from the lending protocol — quotes stay accurate in underlying terms while capital sits in yield tokens; the ship-time rate is baked into the immutable strategy args |
-| 35 | `ChainlinkGuardXD` | MEV protection: reverts if the implied swap price deviates beyond a bound (default 2%) from the Chainlink reference, or if a feed is stale (per-feed staleness: stablecoin feeds update on ~12h heartbeats) |
-| 36 | `MakerCapitalGuardXD` | makes `quote()` a complete fill-oracle: reverts unless an ACTUAL withdrawal of the delivery amount would succeed right now (simulated via the adapter: maker position AND protocol liquidity, not just `balanceOf`) |
+| `AaveV3Adapter` | Aave v3 | aTokens (`aWETH`, `aUSDC`) — supply APY |
+| `ERC4626Adapter` | Morpho (MetaMorpho), Euler, any ERC-4626 vault | vault shares — vault yield |
+| `StargateAdapter` | Stargate v2 | LP tokens staked in the pool's staking — bridge fees + rewards |
+| `PendlePTAdapter` | Pendle | PT tokens — fixed yield (expired = 1:1 redemption, active = AMM exit) |
+| `WstETHAdapter` | Lido (branch `adapter-in-out-config`) | `wstETH` — staking yield, with a Curve swap leg |
 
-**The hooks** — the router doubles as the maker-hooks target:
+The adapters are **pull-less**: the router executes each adapter's `pullPlan`
+(token, exact count, destination) with its **own** allowance — the maker
+approves the router once per token, and switching protocols never re-approves.
+`withdraw(...)` burns the shares already pulled (Aave withdraw, 4626 redeem,
+Stargate unstake+redeem, Pendle redeem/swap); `deposit(...)` deploys the
+received revenue straight into the protocol, minting the maker's shares.
 
-- `preTransferOut`: JIT-withdraws from the yield protocol into the maker wallet
-  (withdraw / unwrap / redeem / unstake — protocol-specific); the default transfer then
-  delivers to the taker. Both hooks are **direction-agnostic** (the 2D strategy trades
-  both ways).
-- `postTransferIn`: re-deploys the received tokens into the yield protocol for the maker
-  (and stakes, where the protocol separates the two — Stargate).
+### Layer 2 — Meta-Opcodes
 
-**The invariants** (enforced by the design, tested):
+Custom SwapVM opcodes appended to the dispatch table (append-only — every
+existing opcode keeps its index). They are **curve-agnostic**: they run
+before or after the pricing opcode and adjust context, gate execution, or
+scale balances — they never replace pricing logic.
 
-- **real capital ≥ virtual balance** at all times: quoting against more than the
-  yield-backed capital can cover only fails a fill, never oversells.
-- **maker idle balance = 0** before, during and after every fill.
-- **`quote() == swap()`** for the same state (the VM's core guarantee, extended by our
-  opcodes — a passing quote is a fillability oracle; a failing quote returns the exact
-  on-chain revert reason).
+| Opcode | What it does |
+|---|---|
+| `YieldAdjustedRateXD` | scales the swap registers by `rate(now)/rate(ship)` — quotes stay accurate in underlying terms while capital sits in yield tokens; adapters are resolved from the maker's registry, the ship-time rate is baked into the program |
+| `ChainlinkGuardXD` | MEV protection: reverts unless the implied swap price stays within a maker-defined bound of the Chainlink reference and both feeds are fresh |
+| `MakerCapitalGuardXD` | makes `quote()` a complete fill-oracle: reverts unless an ACTUAL withdrawal of the delivery amount would succeed right now (maker position AND protocol liquidity) |
+
+All three compose with any pricing opcode — `_xycSwapXD`, `_curvedSwapXD`,
+flat-price, or a third-party curve dropped into the same program.
+
+### Layer 3 — Hook Orchestration
+
+The router is both the modified SwapVM executor **and** the maker-hooks
+target. Inside one atomic fill:
+
+```
+preTransferOut  → pullPlan (exact yield-token count, buffered per protocol)
+                → adapter.withdraw   → real tokens ready → taker
+[Aqua transfers: maker ⇄ taker]
+postTransferIn  → router pulls the received tokens to the adapter
+                → adapter.deposit    → capital immediately redeployed
+```
+
+The invariants (enforced by the design, tested): **real capital ≥ virtual
+balance** (over-quoting only fails a fill, never oversells), **maker idle
+balance = 0** around every fill, and **`quote() == swap()`** — a passing
+quote is a fillability oracle, a failing one returns the exact revert reason.
+
+### What Superposition does NOT do
+
+- **No AMM curves.** It implements no pricing math — it wraps any SwapVM curve.
+- **No pricing logic.** Price discovery is entirely the strategy program's.
+- **No swap routing.** Discovery and routing stay with 1inch's resolver network;
+  Superposition ships an open off-chain resolver as a demo, not infrastructure.
+- **No custody.** Capital lives in the maker's wallet or in the protocol the
+  maker chose — the adapter only moves tokens inside the maker's own fill.
+
+### Income streams
+
+A maker earns three independent streams simultaneously:
+
+1. **Adapter yield** — Aave supply APY, ERC-4626 vault returns, Stargate
+   bridge rewards, Pendle fixed yield (whatever the configured protocol pays).
+2. **Swap fees** — the maker's fee opcode takes basis points of every fill
+   (0.3% flat in the demo).
+3. **Side deployment** — fill revenue is immediately re-deployed into the
+   receiving side's own protocol, so *both* sides of the position keep
+   accruing. Additional streams (e.g. an LP-position adapter earning range
+   fees) fit the same `SideConfig` registry without touching the router.
 
 ---
 
-## Verification: 99 tests, including 7 real-protocol fork proofs
+## Verification: 103 tests, including 7 real-protocol fork proofs
 
 ```
-foundry/  →  forge test        # 99/99 green
+foundry/  →  forge test        # 103/103 green
 ```
 
 | Layer | What it proves |
@@ -97,6 +171,7 @@ foundry/  →  forge test        # 99/99 green
 | `test/fork/ArbitrumForkPendle.t.sol` | **Real expired Pendle PT** (PT-aUSDC-27JUN2024, Arbitrum fork): fixed-income USDC side, redemption chain with zero swap legs |
 | `test/fork/MainnetForkPendleActive.t.sol` | **Real ACTIVE Pendle PT-wstETH** (Ethereum fork): PT at the implied-yield discount, delivery through the market's AMM swap callback, rate from the PendlePYLpOracle TWAP |
 | `test/fork/BaseForkStargate.t.sol` | **Real Stargate V2 pool + staking** (Base fork): USDC deposited AND staked, JIT unstake → redeem, credit-capped via the pool's own `redeemable()` |
+| `test/fork/BaseForkMixedAdapters.t.sol` | **One maker, TWO protocols** (Base fork): WETH capital in Aave + USDC capital in a Morpho vault — the per-token registry end to end |
 
 Real-vault fork testing caught two bugs invisible in mocks: a unit mismatch (shipping
 virtual balances in share counts while fill flows move underlying units — fixed with the
@@ -173,12 +248,12 @@ foundry/
       MakerCapitalGuardOpcode.sol   # byte 36: simulated-withdrawal fill oracle
       SupercazzolaOpcodes.sol       # AquaOpcodes table + the three appended opcodes
   script/
-    BaseChain.s.sol                 # verified Base mainnet addresses
-    SepoliaChain.s.sol              # Ethereum Sepolia testnet
-    BaseSepoliaChain.s.sol          # Base Sepolia testnet
-    ArbitrumSepoliaChain.s.sol      # Arbitrum Sepolia testnet
-    Deploy.s.sol                    # deploys MakerConfig → adapter → router
+    base/ arbitrum/ ethereum/       # per-chain live scenarios (one forge script per adapter)
+    AnvilScenario.s.sol             # scenario base contract: approvals, deploy, setSides, ship, fills
+    Deploy.s.sol                    # multi-chain: deploys config + router + EVERY adapter of the chain
     Demo.s.sol                      # one-shot fork walkthrough
+    start-anvil.sh / fund.sh / lib.sh   # funded anvil in two commands, per chain
+    base|arbitrum|ethereum/execute-with-*.sh  # scenario shortcuts (VERB=0/1/2)
   test/                             # unit + invariants + fork (see table above)
   lib/                              # submodules: swap-vm v1.0.2, aqua v1.0.0, aave-v3-core,
                                     # openzeppelin v5.4.0, solidity-utils 6.9.7, forge-std

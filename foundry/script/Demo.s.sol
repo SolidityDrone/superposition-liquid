@@ -42,25 +42,54 @@ contract Demo is Script, StdCheats {
     address internal taker;
     ISwapVM.Order internal order;
 
+    /// @dev Broadcast-friendly balance seeding: vm.deal is a local-only cheat
+    ///      (it does not exist on a real chain), so on anvil forks we poke the
+    ///      ERC-20 balance storage slot directly via the anvil RPC.
+    function _forkDeal(address token, address who, uint256 amount, uint256 slot) internal {
+        uint256 bal = IERC20(token).balanceOf(who);
+        console2.log("forkDeal check", bal, amount);
+        if (bal >= amount) return; // already seeded
+        bytes32 key = keccak256(abi.encode(who, slot));
+        string memory params = string.concat(
+            '["', vm.toString(token), '","', vm.toString(key), '","', vm.toString(bytes32(amount)), '"]'
+        );
+        vm.rpc("anvil_setStorageAt", params);
+    }
+
     function run() external {
         uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xAC1E));
         maker = vm.addr(MAKER_KEY);
         taker = vm.addr(TAKER_KEY);
         aqua = IAqua(BaseChain.AQUA);
 
-        vm.startBroadcast(deployerKey);
-        makerConfig = new MakerConfig();
-        adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
-        router = new SupercazzolaRouter(BaseChain.AQUA, weth, msg.sender, "SupercazzolaRouter", "1", address(makerConfig));
-        vm.stopBroadcast();
+        // reuse the real deployment artifact when present (Deploy.s.sol), else
+        // deploy a fresh stack: the demo then runs maker setup + ship + fills.
+        try vm.readFile("deployments/supercazzola.json") returns (string memory raw) {
+            address deployedRouter = vm.parseAddress(vm.parseJsonString(raw, ".router"));
+            address payable p = payable(deployedRouter);
+            router = SupercazzolaRouter(p);
+            makerConfig = MakerConfig(router.MAKER_CONFIG());
+            // the adapter is the maker's own choice at config time: the demo
+            // deploys a fresh AaveV3Adapter for the Aave sides (broadcast)
+            vm.startBroadcast(deployerKey);
+            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+            vm.stopBroadcast();
+            console2.log("== 0. reusing deployed stack + fresh Aave adapter ==");
+        } catch {
+            vm.startBroadcast(deployerKey);
+            makerConfig = new MakerConfig();
+            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+            router = new SupercazzolaRouter(BaseChain.AQUA, weth, msg.sender, "SupercazzolaRouter", "1", address(makerConfig));
+            vm.stopBroadcast();
+        }
 
         console2.log("== 1. deployed ==");
         _printCapital("after deploy");
 
         // --- maker setup: 100% capital into Aave ---
         vm.startBroadcast(MAKER_KEY);
-        deal(weth, maker, 105e18);
-        deal(usdc, maker, 262_500e6);
+        _forkDeal(weth, maker, 105e18, 3);    // WETH9: balances at slot 3
+        _forkDeal(usdc, maker, 262_500e6, 9); // FiatToken: balances at slot 9
         IERC20(weth).approve(address(router), type(uint256).max);
         IERC20(usdc).approve(address(router), type(uint256).max);
         IERC20(weth).transfer(address(adapter), 105e18);
@@ -129,7 +158,7 @@ contract Demo is Script, StdCheats {
 
         // --- taker fills: sell USDC, buy WETH ---
         bytes memory tt = _takerTraits();
-        deal(usdc, taker, 1000e6);
+        _forkDeal(usdc, taker, 1000e6, 9);
         vm.startBroadcast(TAKER_KEY);
         IERC20(usdc).approve(address(router), type(uint256).max);
         (, uint256 amountOut,) = router.swap(order, usdc, weth, 1000e6, tt);

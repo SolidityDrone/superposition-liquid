@@ -6,14 +6,17 @@ import { Calldata } from "@1inch/solidity-utils/contracts/libraries/Calldata.sol
 import { Context } from "@1inch/swap-vm/libs/VM.sol";
 
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
+import { MakerConfig } from "src/config/MakerConfig.sol";
 
 // Opcode byte index, appended after ChainlinkGuardXD (see SPEC.md).
 uint256 constant MAKER_CAPITAL_GUARD_XD = 36;
 
 library CapitalArgsBuilder {
-    /// @dev Builds opcode args: adapter + underlyingIn + underlyingOut (60 bytes)
-    function build(address adapter, address underlyingIn, address underlyingOut) internal pure returns (bytes memory) {
-        return abi.encodePacked(adapter, underlyingIn, underlyingOut);
+    /// @dev Builds opcode args: underlyingOut (20 bytes). The adapter is
+    ///      resolved from the maker's side registry (MakerConfig) at
+    ///      quote/fill time — single source of truth.
+    function build(address underlyingOut) internal pure returns (bytes memory) {
+        return abi.encodePacked(underlyingOut);
     }
 }
 
@@ -23,21 +26,21 @@ library CapitalArgsBuilder {
 ///         adapter: maker position AND protocol liquidity, not just balanceOf).
 /// @dev Quote()/swap() share the same runLoop, so a quote that passes guarantees the
 ///      capital check passes at swap time too (modulo state changes between the two).
-contract MakerCapitalGuardOpcode {
+abstract contract MakerCapitalGuardOpcode {
     using Calldata for bytes;
 
     error CapitalArgsTooShort();
     error MakerCapitalInsufficient(uint256 available, uint256 required);
 
-    /// @param args.adapter       | 20 bytes
-    /// @param args.underlyingIn  | 20 bytes
+    /// @dev The router provides its MakerConfig deployment (opcode execution context).
+    function _makerConfig() internal view virtual returns (MakerConfig);
+
     /// @param args.underlyingOut | 20 bytes
     function _makerCapitalGuardXD(Context memory ctx, bytes calldata args) internal view {
-        if (args.length < 60) revert CapitalArgsTooShort();
+        if (args.length < 20) revert CapitalArgsTooShort();
 
-        address adapter = address(bytes20(args.slice(0, 20)));
-        address underlyingIn = address(bytes20(args.slice(20, 40)));
-        address underlyingOut = address(bytes20(args.slice(40, 60)));
+        address underlyingOut = address(bytes20(args.slice(0, 20)));
+        address adapter = _makerConfig().sides(ctx.query.maker, underlyingOut).adapter;
 
         if (ctx.swap.amountOut == 0) return;
 

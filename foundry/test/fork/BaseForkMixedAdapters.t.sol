@@ -11,6 +11,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
+import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
@@ -18,18 +19,22 @@ import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuard
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { BaseChain } from "script/BaseChain.s.sol";
 
-/// @notice Full E2E on a Base mainnet fork: real Aqua registry, real Aave v3, real tokens,
-/// real Chainlink feeds. Maker ships aWETH/aUSDC balances; fill cycles capital JIT.
-contract BaseForkTest is Test {
+/// @notice The per-side registry end to end on a Base mainnet fork: the maker
+///         parks WETH capital in AAVE and USDC capital in a MORPHO ERC-4626
+///         vault (Steakhouse Prime). One maker, two adapters, one config —
+///         each side resolved by token with one registry lookup, nothing hard
+///         coded in the program.
+contract BaseForkMixedAdaptersTest is Test {
     IAqua internal aqua;
-    AaveV3Adapter internal adapter;
+    AaveV3Adapter internal aaveAdapter; // WETH side
+    ERC4626Adapter internal morphoAdapter; // USDC side
     MakerConfig internal makerConfig;
     SupercazzolaRouter internal router;
 
     address internal weth = BaseChain.WETH;
     address internal usdc = BaseChain.USDC;
     address internal aWeth = BaseChain.A_WETH;
-    address internal aUsdc = BaseChain.A_USDC;
+    address internal morphoUsdcVault = BaseChain.MORPHO_USDC_VAULT; // ERC-4626 shares
 
     address internal maker;
     address internal taker;
@@ -45,37 +50,44 @@ contract BaseForkTest is Test {
         taker = makeAddr("taker");
 
         aqua = IAqua(BaseChain.AQUA);
-        adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+        aaveAdapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+        morphoAdapter = new ERC4626Adapter(
+            _single(usdc), _single(morphoUsdcVault)
+        );
         makerConfig = new MakerConfig();
         router = new SupercazzolaRouter(
             BaseChain.AQUA, weth, makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig)
         );
 
-        // maker capital: 105 WETH + 262,500 USDC supplied to real Aave
+        // maker capital split by protocol: WETH in Aave, USDC in Morpho
         uint256 wethReal = 105e18;
         uint256 usdcReal = 262_500e6;
         deal(weth, maker, wethReal);
         deal(usdc, maker, usdcReal);
         vm.startPrank(maker);
-        IERC20(weth).approve(address(adapter), type(uint256).max);
-        IERC20(usdc).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, weth, wethReal);
-        adapter.depositFor(maker, usdc, usdcReal);
-        IERC20(aWeth).approve(address(adapter), type(uint256).max);
-        IERC20(aUsdc).approve(address(adapter), type(uint256).max);
+        IERC20(weth).approve(address(aaveAdapter), type(uint256).max);
+        aaveAdapter.depositFor(maker, weth, wethReal);
+        IERC20(usdc).approve(address(morphoAdapter), type(uint256).max);
+        morphoAdapter.depositFor(maker, usdc, usdcReal);
+        // per-side JIT pull approvals: yield tokens -> their own adapter,
+        // underlyings -> Aqua registry (for the reverse-direction pulls)
+        IERC20(aWeth).approve(address(aaveAdapter), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
-        IERC20(usdc).approve(address(aqua), type(uint256).max); // reverse-direction pulls
+        IERC20(morphoUsdcVault).approve(address(morphoAdapter), type(uint256).max);
+        IERC20(usdc).approve(address(aqua), type(uint256).max);
         SideConfig[] memory sides = new SideConfig[](2);
-        sides[0] = SideConfig({ underlying: weth, adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
-        sides[1] = SideConfig({ underlying: usdc, adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[0] = SideConfig({ underlying: weth, adapter: address(aaveAdapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: usdc, adapter: address(morphoAdapter), kind: AdapterKind.ERC4626, autoManaged: true });
         makerConfig.setSides(sides);
         vm.stopPrank();
 
-        // ship in UNDERLYING units (rate0 baked in args captures post-ship yield only).
-        // Tiny dust buffers both sides: Aave v3.2 displayed-balance rounding can leave the
-        // real aToken balance a few wei below the exact underlying amounts moved per fill.
+        // dust buffers: real balances round a few wei below the exact amounts
+        // ship virtual balances in UNDERLYING units with rate0 = the rate at
+        // ship time: the yield opcode then scales by rate(now)/rate0, capturing
+        // only post-ship accrual (BaseFork semantics — Aave v3.2 displayed
+        // balances are underlying-denominated, so is the deposited USDC).
         wethVirtual = IERC20(aWeth).balanceOf(maker) - 1e4;
-        usdcVirtual = IERC20(aUsdc).balanceOf(maker) - 1e4;
+        usdcVirtual = usdcReal - 1e4;
 
         order = MakerTraitsLib.build(
             MakerTraitsLib.Args({
@@ -99,7 +111,9 @@ contract BaseForkTest is Test {
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
                     uint8(104),
-                    YieldArgsBuilder.build(usdc, weth, adapter.exchangeRate(usdc), adapter.exchangeRate(weth)),
+                    YieldArgsBuilder.build(
+                        usdc, weth, morphoAdapter.exchangeRate(usdc), aaveAdapter.exchangeRate(weth)
+                    ),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap._xycSwapXD
                     uint8(CHAINLINK_GUARD_XD),
@@ -151,26 +165,30 @@ contract BaseForkTest is Test {
         IERC20(usdc).approve(address(router), type(uint256).max);
     }
 
-    function test_fork_fullCycle() public {
-        // effective balances at quote time (aToken count * rate = real underlying)
-        uint256 rateWeth = adapter.exchangeRate(weth);
-        uint256 rateUsdc = adapter.exchangeRate(usdc);
-        uint256 balanceOutEff = wethVirtual * rateWeth / 1e18;
-        uint256 balanceInEff = usdcVirtual * rateUsdc / 1e18;
+    function _single(address a) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = a;
+    }
+
+    function test_fork_mixedAdapterCycle() public {
+        // virtuals ship in UNDERLYING units with rate0 = the ship-time rate,
+        // so the yield opcode's factor rate(now)/rate0 is exactly 1 on the same
+        // block: the AMM prices on the underlying amounts themselves.
+        uint256 balanceOutEff = wethVirtual;
+        uint256 balanceInEff = usdcVirtual;
 
         uint256 amountIn = 1000e6;
         uint256 feeBps = 3e6;
         uint256 bps = 1e9;
-        uint256 pricingIn = amountIn - (amountIn * feeBps + bps - 1) / bps; // flatFee ceil
+        uint256 pricingIn = amountIn - (amountIn * feeBps + bps - 1) / bps;
         uint256 expectedOut = pricingIn * balanceOutEff / (balanceInEff + pricingIn);
 
         vm.prank(taker);
         (, uint256 quotedOut,) = router.quote(order, usdc, weth, amountIn, takerTraitsData);
-        // AMM + fee math must land within 0.01% of expected
         assertApproxEqRel(quotedOut, expectedOut, 1e14);
 
         uint256 aWethBefore = IERC20(aWeth).balanceOf(maker);
-        uint256 aUsdcBefore = IERC20(aUsdc).balanceOf(maker);
+        uint256 sharesBefore = IERC20(morphoUsdcVault).balanceOf(maker);
 
         vm.prank(taker);
         (, uint256 amountOut,) = router.swap(order, usdc, weth, amountIn, takerTraitsData);
@@ -180,19 +198,20 @@ contract BaseForkTest is Test {
         assertEq(IERC20(weth).balanceOf(taker), amountOut);
         assertEq(IERC20(usdc).balanceOf(taker), 0);
 
-        // JIT: maker wallet idle capital stays zero, capital cycled through Aave
+        // JIT: maker wallet idle capital stays zero on BOTH sides
         assertEq(IERC20(weth).balanceOf(maker), 0, "maker holds idle WETH");
         assertEq(IERC20(usdc).balanceOf(maker), 0, "maker holds idle USDC");
 
-        // aWETH decreased (JIT delivery), aUSDC increased (redeployed fill)
+        // the two sides cycled through DIFFERENT protocols:
+        // aWETH decreased (Aave JIT delivery), Morpho shares increased (redeployed fill)
         assertLt(IERC20(aWeth).balanceOf(maker), aWethBefore);
-        assertGt(IERC20(aUsdc).balanceOf(maker), aUsdcBefore);
+        assertGt(IERC20(morphoUsdcVault).balanceOf(maker), sharesBefore);
 
-        // invariant: real >= virtual on both sides
+        // invariant: real >= virtual on both sides, each priced by ITS adapter
         bytes32 strategyHash = keccak256(abi.encode(order));
         (uint256 vIn,) = aqua.rawBalances(maker, address(router), strategyHash, usdc);
         (uint256 vOut,) = aqua.rawBalances(maker, address(router), strategyHash, weth);
-        assertGe(adapter.yieldToUnderlying(usdc, IERC20(aUsdc).balanceOf(maker)), vIn);
-        assertGe(adapter.yieldToUnderlying(weth, IERC20(aWeth).balanceOf(maker)), vOut);
+        assertGe(morphoAdapter.yieldToUnderlying(usdc, IERC20(morphoUsdcVault).balanceOf(maker)), vIn);
+        assertGe(aaveAdapter.yieldToUnderlying(weth, IERC20(aWeth).balanceOf(maker)), vOut);
     }
 }

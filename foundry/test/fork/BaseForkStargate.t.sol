@@ -12,7 +12,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { StargateAdapter } from "src/adapters/stargate/StargateAdapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
@@ -65,15 +65,10 @@ contract BaseForkStargateTest is Test {
         stakedBefore = lp.balanceOf(address(STARGATE_STAKING));
         adapter.depositFor(maker, USDC, 5_000e6);
         assertEq(lp.balanceOf(address(STARGATE_STAKING)) - stakedBefore, 5_000e6);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: USDC,
-                underlyingOut: WETH,
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: WETH, adapter: address(adapter), kind: AdapterKind.Stargate, autoManaged: true });
+        sides[1] = SideConfig({ underlying: USDC, adapter: address(adapter), kind: AdapterKind.Stargate, autoManaged: true });
+        makerConfig.setSides(sides);
 
         // ship: USDC virtual backed by the staked LP; price = 5000/1.6 ≈ 3125 USDC/WETH
         // (near market, keeps the AMM average within tolerance; no Chainlink guard here
@@ -101,12 +96,12 @@ contract BaseForkStargateTest is Test {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(124),
-                    YieldArgsBuilder.build(address(adapter), USDC, WETH, 1e18, 1e18),
+                    uint8(104),
+                    YieldArgsBuilder.build(USDC, WETH, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
-                    uint8(36), uint8(60),
-                    CapitalArgsBuilder.build(address(adapter), USDC, WETH)
+                    uint8(36), uint8(20),
+                    CapitalArgsBuilder.build(WETH)
                 )
             })
         );

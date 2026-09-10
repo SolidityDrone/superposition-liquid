@@ -13,7 +13,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder } from "src/opcodes/ChainlinkGuardOpcode.sol";
@@ -77,15 +77,10 @@ contract SupercazzolaRouterTest is Test {
         // approvals per SPEC B4.1: aWETH/USDC -> adapter, WETH -> Aqua registry
         aToken.approve(address(adapter), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: address(usdc),
-                underlyingOut: address(weth),
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        makerConfig.setSides(sides);
         vm.stopPrank();
 
         // sanity: maker holds zero idle capital, all in aTokens
@@ -97,15 +92,15 @@ contract SupercazzolaRouterTest is Test {
     function _shipStrategy() internal {
         bytes memory program = abi.encodePacked(
             uint8(YIELD_ADJUSTED_RATE_XD),
-            uint8(124),
-            YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
+            uint8(104),
+            YieldArgsBuilder.build(address(usdc), address(weth), 1e18, 1e18),
             uint8(21), // Fee._flatFeeAmountInXD (v1.0.1 dispatch bytes)
             uint8(4),
             FeeArgsBuilder.buildFlatFee(3e6), // 0.3%
             uint8(17), // XYCSwap._xycSwapXD (v1.0.1 dispatch bytes)
             uint8(0),
-            uint8(36), uint8(60),
-            CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth))
+            uint8(36), uint8(20),
+            CapitalArgsBuilder.build(address(weth))
         );
 
         order = MakerTraitsLib.build(

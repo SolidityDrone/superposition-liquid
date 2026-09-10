@@ -12,7 +12,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 
@@ -66,15 +66,10 @@ contract JitInvariantsTest is Test {
         adapter.depositFor(maker, address(usdc), 4200e6);
         aToken.approve(address(adapter), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: address(usdc),
-                underlyingOut: address(weth),
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        makerConfig.setSides(sides);
 
         order = MakerTraitsLib.build(
             MakerTraitsLib.Args({
@@ -96,8 +91,8 @@ contract JitInvariantsTest is Test {
                 postTransferOutTarget: address(0),
                 postTransferOutData: "",
                 program: abi.encodePacked(
-                    uint8(YIELD_ADJUSTED_RATE_XD), uint8(124),
-                    YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
+                    uint8(YIELD_ADJUSTED_RATE_XD), uint8(104),
+                    YieldArgsBuilder.build(address(usdc), address(weth), 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0)
                 )

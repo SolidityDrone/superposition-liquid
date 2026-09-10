@@ -12,7 +12,7 @@ import { ISwapVM } from "@1inch/swap-vm/interfaces/ISwapVM.sol";
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
@@ -63,24 +63,19 @@ contract CapitalDrainE2ETest is Test {
         adapter.depositFor(maker, address(usdc), 4500e6);
         aToken.approve(address(adapter), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: address(usdc),
-                underlyingOut: address(weth),
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        makerConfig.setSides(sides);
 
         program = abi.encodePacked(
             uint8(YIELD_ADJUSTED_RATE_XD),
-            uint8(124),
-            YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
+            uint8(104),
+            YieldArgsBuilder.build(address(usdc), address(weth), 1e18, 1e18),
             uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
             uint8(17), uint8(0), // XYCSwap
-            uint8(36), uint8(60),
-            CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth))
+            uint8(36), uint8(20),
+            CapitalArgsBuilder.build(address(weth))
         );
 
         // ship: virtual balances in underlying units

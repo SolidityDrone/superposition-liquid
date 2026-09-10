@@ -47,9 +47,14 @@ contract ERC4626Adapter is ILendingAdapter {
         return vaultOf[underlying].convertToAssets(amount);
     }
 
-    /// @notice Underlying per 1 vault share, 1e18 precision — straight from the vault.
+    /// @notice Underlying per 1 displayed vault token, 1e18 precision — straight
+    ///      from the vault, decimals-agnostic: works for any share/asset decimal
+    ///      split (18/18 Morpho WETH, 6/6 Steakhouse USDC, ...).
     function exchangeRate(address underlying) public view returns (uint256) {
-        return vaultOf[underlying].convertToAssets(WAD);
+        IERC4626 vault = vaultOf[underlying];
+        uint256 oneShare = 10 ** vault.decimals();
+        uint256 assets = vault.convertToAssets(oneShare);
+        return assets * WAD / oneShare;
     }
 
     /// @notice Withdraws underlying on behalf of maker: redeem from the vault straight

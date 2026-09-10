@@ -12,7 +12,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
@@ -124,15 +124,10 @@ contract BaseForkErc4626Test is Test {
         morphoUsdc.approve(address(adapter), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: usdc,
-                underlyingOut: weth,
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: weth, adapter: address(adapter), kind: AdapterKind.ERC4626, autoManaged: true });
+        sides[1] = SideConfig({ underlying: usdc, adapter: address(adapter), kind: AdapterKind.ERC4626, autoManaged: true });
+        makerConfig.setSides(sides);
 
         // ship in UNDERLYING units; rate0 baked in args captures post-ship yield only
         uint256 wethVirtual = wethReal - 1e4; // dust buffer (vault ceil-rounding on withdraw)
@@ -160,8 +155,8 @@ contract BaseForkErc4626Test is Test {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(124),
-                    YieldArgsBuilder.build(address(adapter), usdc, weth, rate0Usdc, rate0Weth),
+                    uint8(104),
+                    YieldArgsBuilder.build(usdc, weth, rate0Usdc, rate0Weth),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
                     uint8(CHAINLINK_GUARD_XD),
@@ -169,8 +164,8 @@ contract BaseForkErc4626Test is Test {
                     GuardArgsBuilder.build(
                         weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
                     ),
-                    uint8(36), uint8(60),
-                    CapitalArgsBuilder.build(address(adapter), usdc, weth)
+                    uint8(36), uint8(20),
+                    CapitalArgsBuilder.build(weth)
                 )
             })
         );

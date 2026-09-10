@@ -7,7 +7,9 @@ import { SwapVM } from "@1inch/swap-vm/SwapVM.sol";
 import { Context } from "@1inch/swap-vm/libs/VM.sol";
 
 import { SupercazzolaOpcodes } from "src/opcodes/SupercazzolaOpcodes.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
+import { MakerCapitalGuardOpcode } from "src/opcodes/MakerCapitalGuardOpcode.sol";
+import { YieldAdjustedRateOpcode } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
 
 /// @title SupercazzolaRouter
@@ -35,6 +37,12 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         return _opcodes();
     }
 
+    /// @notice Opcode-context hook: the custom opcodes resolve the maker's
+    ///         side adapters from the same registry the hooks use.
+    function _makerConfig() internal view override(SupercazzolaOpcodes) returns (MakerConfig) {
+        return MAKER_CONFIG;
+    }
+
     // --- Maker hooks (JIT capital cycling) ---
 
     /// @notice Called by SwapVM before tokenOut leaves the maker. JIT-unwraps from the
@@ -52,9 +60,9 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         bytes calldata /* makerData */,
         bytes calldata /* takerData */
     ) external {
-        MakerVaultConfig memory cfg = MAKER_CONFIG.getConfig(maker);
-        if (cfg.autoWithdrawOut && (cfg.underlyingOut == tokenOut || cfg.underlyingIn == tokenOut)) {
-            ILendingAdapter(cfg.adapter).withdrawTo(maker, tokenOut, amountOut, maker);
+        SideConfig memory s = MAKER_CONFIG.sides(maker, tokenOut);
+        if (s.autoManaged && s.adapter != address(0)) {
+            ILendingAdapter(s.adapter).withdrawTo(maker, tokenOut, amountOut, maker);
         }
     }
 
@@ -72,9 +80,9 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         bytes calldata /* makerData */,
         bytes calldata /* takerData */
     ) external {
-        MakerVaultConfig memory cfg = MAKER_CONFIG.getConfig(maker);
-        if (cfg.autoDepositIn && (cfg.underlyingIn == tokenIn || cfg.underlyingOut == tokenIn)) {
-            ILendingAdapter(cfg.adapter).depositFor(maker, tokenIn, amountIn);
+        SideConfig memory s = MAKER_CONFIG.sides(maker, tokenIn);
+        if (s.autoManaged && s.adapter != address(0)) {
+            ILendingAdapter(s.adapter).depositFor(maker, tokenIn, amountIn);
         }
     }
 

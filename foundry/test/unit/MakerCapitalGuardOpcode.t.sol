@@ -9,6 +9,7 @@ import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataP
 import { MockAavePool, MockAToken, MockDebtToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { MakerCapitalGuardOpcode, CapitalArgsBuilder } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
 contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
@@ -17,6 +18,7 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
     MockToken internal usdc;
     MockToken internal weth;
     AaveV3Adapter internal adapter;
+    MakerConfig internal makerConfig;
     address internal maker;
     address internal taker;
 
@@ -32,10 +34,22 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         adapter = new AaveV3Adapter(address(pool));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
+
+        // the guard resolves the side adapter from the maker's registry
+        makerConfig = new MakerConfig();
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        vm.prank(maker);
+        makerConfig.setSides(sides);
+    }
+
+    function _makerConfig() internal view override returns (MakerConfig) {
+        return makerConfig;
     }
 
     function _args() internal view returns (bytes memory) {
-        return CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth));
+        return CapitalArgsBuilder.build(address(weth));
     }
 
     function _ctx(address tokenIn, address tokenOut, uint256 amountOut)

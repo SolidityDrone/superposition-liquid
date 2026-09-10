@@ -13,7 +13,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
@@ -69,15 +69,10 @@ contract Demo is Script, StdCheats {
         IERC20(aUsdc).approve(address(adapter), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max); // reverse-direction pulls
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: usdc,
-                underlyingOut: weth,
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: weth, adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: usdc, adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        makerConfig.setSides(sides);
         vm.stopBroadcast();
         console2.log("== 2. maker capital 100% in Aave (aWETH/aUSDC) ==");
         _printCapital("after setup");
@@ -107,8 +102,8 @@ contract Demo is Script, StdCheats {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(124),
-                    YieldArgsBuilder.build(address(adapter), usdc, weth, 1e18, 1e18),
+                    uint8(104),
+                    YieldArgsBuilder.build(usdc, weth, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6), // 0.3% fee to maker
                     uint8(17), uint8(0), // XYCSwap._xycSwapXD
                     uint8(CHAINLINK_GUARD_XD),

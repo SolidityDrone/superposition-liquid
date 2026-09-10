@@ -13,7 +13,7 @@ import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { MockAggregator } from "test/unit/mocks/MockAggregator.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD, ChainlinkGuardOpcode } from "src/opcodes/ChainlinkGuardOpcode.sol";
@@ -78,29 +78,24 @@ contract ChainlinkGuardE2ETest is Test {
         adapter.depositFor(maker, address(usdc), usdcReal);
         aToken.approve(address(adapter), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: address(usdc),
-                underlyingOut: address(weth),
-                autoDepositIn: true,
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        makerConfig.setSides(sides);
 
         bytes memory guardArgs = GuardArgsBuilder.build(
             address(weth), address(usdc), address(ethFeed), address(usdcFeed), 200, 3600, 3600
         );
         bytes memory fullProgram = abi.encodePacked(
             uint8(YIELD_ADJUSTED_RATE_XD),
-            uint8(124),
-            YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), 1e18, 1e18),
+            uint8(104),
+            YieldArgsBuilder.build(address(usdc), address(weth), 1e18, 1e18),
             program,
             uint8(CHAINLINK_GUARD_XD),
             uint8(92),
             guardArgs,
-            uint8(36), uint8(60),
-            CapitalArgsBuilder.build(address(adapter), address(usdc), address(weth))
+            uint8(36), uint8(20),
+            CapitalArgsBuilder.build(address(weth))
         );
 
         lastOrder = MakerTraitsLib.build(

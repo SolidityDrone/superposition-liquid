@@ -9,11 +9,13 @@ import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataP
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { YieldAdjustedRateOpcode, YieldArgsBuilder } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 
 contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
     uint256 internal constant RAY = 1e27;
 
+    MakerConfig internal makerConfig;
     AaveV3Adapter internal adapter;
     MockAavePool internal pool;
     MockToken internal usdc;
@@ -32,10 +34,22 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
         taker = makeAddr("taker");
         _seedSupply(address(usdc), 1e6);
         _seedSupply(address(weth), 1e15);
+
+        // the opcode resolves the maker's side adapters from the registry
+        makerConfig = new MakerConfig();
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: address(usdc), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        sides[1] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });
+        vm.prank(maker);
+        makerConfig.setSides(sides);
+    }
+
+    function _makerConfig() internal view override returns (MakerConfig) {
+        return makerConfig;
     }
 
     function _opcodeArgs(uint256 rate0In, uint256 rate0Out) internal view returns (bytes memory) {
-        return YieldArgsBuilder.build(address(adapter), address(usdc), address(weth), rate0In, rate0Out);
+        return YieldArgsBuilder.build(address(usdc), address(weth), rate0In, rate0Out);
     }
 
     function _ctx(uint256 balanceIn, uint256 balanceOut) internal view returns (Context memory ctx) {

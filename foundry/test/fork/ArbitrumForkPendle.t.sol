@@ -11,7 +11,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
@@ -58,15 +58,10 @@ contract ArbitrumForkPendleTest is Test {
         pt.approve(address(adapter), type(uint256).max);
         IERC20(USDC).approve(address(AQUA), type(uint256).max);
         IERC20(WETH).approve(address(AQUA), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: USDC,
-                underlyingOut: WETH,
-                autoDepositIn: true, // passthrough: the fill's WETH revenue stays in the wallet
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: WETH, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });
+        sides[1] = SideConfig({ underlying: USDC, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });
+        makerConfig.setSides(sides);
 
         // ship: USDC virtual backed by PT, WETH virtual backed by wallet (passthrough)
         uint256 usdcVirtual = 20_000e6 - 1e4; // dust buffer
@@ -93,15 +88,15 @@ contract ArbitrumForkPendleTest is Test {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(124),
-                    YieldArgsBuilder.build(address(adapter), USDC, WETH, 1e18, 1e18),
+                    uint8(104),
+                    YieldArgsBuilder.build(USDC, WETH, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
                     uint8(CHAINLINK_GUARD_XD),
                     uint8(92),
                     GuardArgsBuilder.build(WETH, USDC, CHAINLINK_ETH_USD, CHAINLINK_USDC_USD, 200, 3600, 86_400),
-                    uint8(36), uint8(60),
-                    CapitalArgsBuilder.build(address(adapter), USDC, WETH)
+                    uint8(36), uint8(20),
+                    CapitalArgsBuilder.build(WETH)
                 )
             })
         );

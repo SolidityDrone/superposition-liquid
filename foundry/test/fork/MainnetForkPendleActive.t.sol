@@ -11,7 +11,7 @@ import { TakerTraitsLib } from "@1inch/swap-vm/libs/TakerTraits.sol";
 import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
-import { MakerConfig, MakerVaultConfig } from "src/config/MakerConfig.sol";
+import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
@@ -63,15 +63,10 @@ contract MainnetForkPendleActiveTest is Test {
         pt.approve(address(adapter), type(uint256).max);
         IERC20(WSTETH).approve(address(AQUA), type(uint256).max);
         IERC20(USDC).approve(address(AQUA), type(uint256).max);
-        makerConfig.setConfig(
-            MakerVaultConfig({
-                adapter: address(adapter),
-                underlyingIn: USDC,
-                underlyingOut: WSTETH,
-                autoDepositIn: true, // passthrough: the fill's USDC revenue stays in the wallet
-                autoWithdrawOut: true
-            })
-        );
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: WSTETH, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });
+        sides[1] = SideConfig({ underlying: USDC, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });
+        makerConfig.setSides(sides);
 
         // ship in UNDERLYING units: wstETH virtual = PT position at the oracle rate
         uint256 rate0 = adapter.exchangeRate(WSTETH);
@@ -99,12 +94,12 @@ contract MainnetForkPendleActiveTest is Test {
                 postTransferOutData: "",
                 program: abi.encodePacked(
                     uint8(YIELD_ADJUSTED_RATE_XD),
-                    uint8(124),
-                    YieldArgsBuilder.build(address(adapter), USDC, WSTETH, 1e18, rate0),
+                    uint8(104),
+                    YieldArgsBuilder.build(USDC, WSTETH, 1e18, rate0),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
-                    uint8(36), uint8(60),
-                    CapitalArgsBuilder.build(address(adapter), USDC, WSTETH)
+                    uint8(36), uint8(20),
+                    CapitalArgsBuilder.build(WSTETH)
                 )
             })
         );

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="app/public/logo.png" alt="Superposition-Liquid" width="160" />
+</p>
+
 # Superposition-Liquid
 
 **A 1inch Aqua liquidity position backed 100% by yield protocols — looking like a plain ETH/USDC pool to the outside world.**
@@ -121,6 +125,33 @@ through the real deployed contracts on the fork.
 
 ---
 
+## Testnet support
+
+Chain configuration files for public testnets are in `foundry/script/`:
+
+| Testnet | Chain ID | Config file | RPC |
+|---|---|---|---|
+| Ethereum Sepolia | 11155111 | `SepoliaChain.s.sol` | `https://ethereum-sepolia.publicnode.com` |
+| Base Sepolia | 84532 | `BaseSepoliaChain.s.sol` | `https://sepolia.base.org` |
+| Arbitrum Sepolia | 421614 | `ArbitrumSepoliaChain.s.sol` | `https://sepolia-rollup.arbitrum.io/rpc` |
+
+**Adapter availability per testnet:**
+
+| Adapter | Ethereum Sepolia | Base Sepolia | Arbitrum Sepolia |
+|---|---|---|---|
+| AaveV3Adapter | ✅ | ✅ (WETH only) | ❌ |
+| StargateAdapter | ✅ | ❌ | ❌ |
+| ChainlinkGuardOpcode | ✅ | ✅ | ✅ |
+| PendlePTAdapter | ❌ | ❌ | ❌ |
+| ERC4626Adapter (Morpho/Euler) | ❌ | ❌ | ❌ |
+| WstETHAdapter | ❌ | ❌ | ❌ |
+
+Aqua registry + SwapVM router use the **same vanity addresses** as mainnet on all
+three testnets. Morpho, Euler, Pendle, and wstETH have no public testnet
+deployments (permissionless — deploy your own).
+
+---
+
 ## Repo layout
 
 ```
@@ -143,6 +174,9 @@ foundry/
       SupercazzolaOpcodes.sol       # AquaOpcodes table + the three appended opcodes
   script/
     BaseChain.s.sol                 # verified Base mainnet addresses
+    SepoliaChain.s.sol              # Ethereum Sepolia testnet
+    BaseSepoliaChain.s.sol          # Base Sepolia testnet
+    ArbitrumSepoliaChain.s.sol      # Arbitrum Sepolia testnet
     Deploy.s.sol                    # deploys MakerConfig → adapter → router
     Demo.s.sol                      # one-shot fork walkthrough
   test/                             # unit + invariants + fork (see table above)
@@ -150,6 +184,7 @@ foundry/
                                     # openzeppelin v5.4.0, solidity-utils 6.9.7, forge-std
 docs/
   SPEC.md                           # full design + decision log (B1.1 … B10.3)
+  ADDRESSES.md                      # all addresses: mainnet + testnets
   pendle-adapter.md                 # Pendle deep-dive (both paths, on-chain gotchas)
   stargate-adapter.md               # Stargate deep-dive
   ROADMAP.md                        # what is not built yet, with design sketches
@@ -166,7 +201,7 @@ docs/
 | `aave/aave-v3-core` | latest (interfaces only) | IPool/DataTypes |
 | Solidity | **0.8.30** | same as swap-vm |
 
-## Base addresses (verified on-chain, see `script/BaseChain.s.sol`)
+## Base addresses (verified on-chain, see `script/BaseChain.s.sol` + `docs/ADDRESSES.md`)
 
 | Contract | Address |
 |---|---|

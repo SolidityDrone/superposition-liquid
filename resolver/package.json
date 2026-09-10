@@ -1,0 +1,19 @@
+{
+  "name": "superposition-resolver",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Off-chain discovery + quoting layer for Superposition-Liquid: indexes strategies shipped to the custom Aqua router, reads maker positions (100% lending-backed) and quotes fills through the router's own fill oracle.",
+  "scripts": {
+    "demo": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.4",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

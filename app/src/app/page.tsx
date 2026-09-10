@@ -1,17 +1,9 @@
 import TileBackground from "@/components/TileBackground";
 import FillDiagram from "@/components/FillDiagram";
-import {
-  AaveLogo, MorphoLogo, EulerLogo, LidoLogo, PendleLogo, StargateLogo, CurveLogo,
-  LendingIcon, VaultIcon, StakingIcon, FixedIncomeIcon, BridgeIcon,
-} from "@/components/logos";
+import CodeSnippet from "@/components/CodeSnippet";
+import BackedSection from "@/components/BackedSection";
 
 /* ---------- content ---------- */
-
-const HERO_FACTS = [
-  "99 tests, green",
-  "7 protocols verified against live contracts",
-  "Solidity 0.8.30 · Foundry",
-];
 
 const STEPS = [
   {
@@ -21,7 +13,7 @@ const STEPS = [
       <>
         The maker ships an ETH/USDC position on Aqua, like any other liquidity provider.
         The difference is invisible to the taker: the capital doesn't sit in the wallet —
-        it lives in a yield protocol. Resolvers and aggregators read it as <b>a normal
+        it lives in a yield protocol. Routers and aggregators read it as <b>a normal
         pool with normal balances</b>.
       </>
     ),
@@ -87,62 +79,6 @@ const ENGINE = [
   },
 ];
 
-const BACKED = [
-  {
-    name: "Aave v3",
-    sub: "AaveV3Adapter",
-    icon: <LendingIcon size={19} />,
-    color: "#b6509e",
-    earns: "Variable supply APY",
-    desc: "aWETH and aUSDC across 18 chains, both balance models handled.",
-    prots: [
-      { name: "Aave", Logo: AaveLogo },
-    ],
-  },
-  {
-    name: "Morpho · Euler",
-    sub: "ERC4626Adapter",
-    icon: <VaultIcon size={19} />,
-    color: "#1b5cff",
-    earns: "Curated vault yield",
-    desc: "One generic adapter for any ERC-4626 vault — Gauntlet, Steakhouse, Euler EVK…",
-    prots: [
-      { name: "Morpho", Logo: MorphoLogo },
-      { name: "Euler", Logo: EulerLogo },
-    ],
-  },
-  {
-    name: "Lido wstETH",
-    sub: "WstETHAdapter",
-    icon: <StakingIcon size={19} />,
-    color: "#00a3ff",
-    earns: "Staking yield, appreciating vs ETH",
-    desc: "JIT unwrap through the real Curve stETH/ETH pool.",
-    prots: [
-      { name: "Lido", Logo: LidoLogo },
-      { name: "Curve", Logo: CurveLogo },
-    ],
-  },
-  {
-    name: "Pendle PT",
-    sub: "PendlePTAdapter",
-    icon: <FixedIncomeIcon size={19} />,
-    color: "#7b61ff",
-    earns: "Fixed APY, locked at entry",
-    desc: "Expired markets redeem 1:1; active ones appreciate toward par in real time.",
-    prots: [{ name: "Pendle", Logo: PendleLogo }],
-  },
-  {
-    name: "Stargate V2",
-    sub: "StargateAdapter",
-    icon: <BridgeIcon size={19} />,
-    color: "#4c6fff",
-    earns: "Bridge reward stream",
-    desc: "Pool liquidity, staked. Instant unstake → redeem, capped by pool credit.",
-    prots: [{ name: "Stargate", Logo: StargateLogo }],
-  },
-];
-
 /* ---------- page ---------- */
 
 export default function Page() {
@@ -151,7 +87,7 @@ export default function Page() {
       <nav className="nav">
         <div className="nav-inner">
           <div className="brand">
-            <div className="brand-mark">S</div>
+            <img src="/logo.png" alt="Superposition" className="brand-logo" width={44} height={44} />
             <div>
               Superposition<span className="brand-dim">-Liquid</span>
             </div>
@@ -171,45 +107,38 @@ export default function Page() {
       <header className="hero">
         <TileBackground />
         <div className="hero-scrim" aria-hidden />
-        <div className="container hero-inner">
-          <span className="hero-tag">BUILT ON 1INCH AQUA — ETHONLINE 2026</span>
-          <h1>
-            Liquidity that
-            <br />
-            never sleeps<em>.</em>
-          </h1>
-          <p className="lede">
-            Superposition-Liquid is a custom Aqua router where <b>100% of the maker's
-            capital</b> sits in yield protocols — Aave, Morpho, Euler, Lido, Pendle,
-            Stargate — and cycles in and out <b>atomically on every fill</b>. To the
-            outside world, it reads as a plain ETH/USDC pool.
-          </p>
-          <div className="cta-row">
-            <a className="btn btn-primary" href="#how">How it works ↓</a>
-            <a className="btn btn-ghost" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
-              Source
-            </a>
+        <div className="container hero-grid">
+          <div className="hero-text">
+            <span className="hero-tag">BUILT ON 1INCH AQUA — ETHONLINE 2026</span>
+            <h1>
+              Liquidity that
+              <br />
+              never sleeps<em>.</em>
+            </h1>
+            <p className="lede">
+              Superposition-Liquid is a custom Aqua router where <b>100% of the maker's
+              capital</b> sits in yield protocols — Aave, Morpho, Euler, Lido, Pendle,
+              Stargate — and cycles in and out <b>atomically on every fill</b>. To the
+              outside world, it reads as a plain ETH/USDC pool.
+            </p>
+            <div className="cta-row">
+              <a className="btn btn-primary" href="#how">How it works ↓</a>
+              <a className="btn btn-ghost" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
+                Source
+              </a>
+            </div>
           </div>
-          <div className="hero-foot">
-            {HERO_FACTS.map((f, i) => (
-              <span key={f}>
-                {i > 0 && <span className="sep"> · </span>}
-                {f}
-              </span>
-            ))}
+          <div className="hero-logo">
+            <img src="/logo.png" alt="Superposition-Liquid" />
           </div>
         </div>
       </header>
 
       {/* ---------- 01 how a fill works ---------- */}
       <section className="section" id="how">
-        <div className="container section-grid">
-          <div className="sec-label">
-            <span className="num">01</span>
-            How a fill works
-          </div>
-          <div>
-            <h2 className="sec-title">Three transactions deep, the capital never stops working.</h2>
+        <div className="container">
+          <div className="panel">
+            <h2 className="sec-title">0x01 Three transactions deep, the capital never stops working.</h2>
             <p className="sec-intro">
               Every fill is one atomic transaction where the maker's capital resurfaces,
               changes hands, and dives back in.
@@ -226,24 +155,23 @@ export default function Page() {
                 </div>
               ))}
             </div>
-            <div className="diagram-head">
-              <div className="diagram-title">One fill, end to end — the Aave maker, on a Base fork</div>
-              <div className="diagram-sub">USDC comes in, wETH goes out. The dotted ring is the money path.</div>
-            </div>
-            <FillDiagram />
           </div>
+          <CodeSnippet />
+        </div>
+        <div className="container">
+          <div className="panel diagram-head">
+            <div className="diagram-title">One fill, end to end — the Aave maker, on a Base fork</div>
+            <div className="diagram-sub">USDC comes in, wETH goes out. The dotted ring is the money path.</div>
+          </div>
+          <FillDiagram />
         </div>
       </section>
 
       {/* ---------- 02 the engine ---------- */}
       <section className="section" id="engine">
-        <div className="container section-grid">
-          <div className="sec-label">
-            <span className="num">02</span>
-            Built into the VM
-          </div>
-          <div>
-            <h2 className="sec-title">The pricing never lies.</h2>
+        <div className="container">
+          <div className="panel">
+            <h2 className="sec-title">0x02 The pricing never lies.</h2>
             <p className="sec-intro">
               Three custom instructions appended to the SwapVM dispatch table. They run
               identically in quote and execution — a quote that passes is a fill that
@@ -263,70 +191,26 @@ export default function Page() {
       </section>
 
       {/* ---------- 03 backed by ---------- */}
-      <section className="section" id="backed">
-        <div className="container section-grid">
-          <div className="sec-label">
-            <span className="num">03</span>
-            Backed by
-          </div>
-          <div>
-            <h2 className="sec-title">Pick a protocol. Pick a risk.</h2>
-            <p className="sec-intro">
-              The adapter layer is the point: the strategy doesn't change — the maker
-              points one config at a protocol and the position earns that protocol's
-              yield. Same pool surface, five temperaments.
-            </p>
-            <div className="backed">
-              {BACKED.map((b) => (
-                <div className="backed-row" key={b.sub}>
-                  <div className="backed-icon" style={{ color: b.color, borderColor: `${b.color}33`, background: `${b.color}14` }}>
-                    {b.icon}
-                  </div>
-                  <div className="backed-name">
-                    {b.name}
-                    <span className="sub">{b.sub}</span>
-                  </div>
-                  <div className="backed-desc">
-                    <b style={{ color: "var(--text)", fontWeight: 560 }}>{b.earns}</b> — {b.desc}
-                  </div>
-                  <div className="backed-prots">
-                    {b.prots.map((pr) => (
-                      <span className="prot" key={pr.name}>
-                        <pr.Logo size={15} />
-                        {pr.name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="quiet">
-              <span>99 tests, green</span>
-              <span className="sep">·</span>
-              <span>7 integrations verified against live contracts on Base, Arbitrum and Ethereum forks</span>
-              <span className="sep">·</span>
-              <span>solidity 0.8.30 · foundry</span>
-            </div>
-          </div>
-        </div>
-      </section>
+      <BackedSection />
 
       {/* ---------- final ---------- */}
       <section className="final">
         <div className="container">
-          <h2>
-            Your liquidity.
-            <br />
-            <em>Actually working.</em>
-          </h2>
-          <p>
-            The full source — router, opcodes, adapters, tests and the complete design
-            decision log — is open.
-          </p>
-          <div className="cta-row">
-            <a className="btn btn-primary" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
-              Read the source
-            </a>
+          <div className="panel">
+            <h2>
+              Your liquidity.
+              <br />
+              <em>Actually working.</em>
+            </h2>
+            <p>
+              The full source — router, opcodes, adapters, tests and the complete design
+              decision log — is open.
+            </p>
+            <div className="cta-row">
+              <a className="btn btn-primary" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
+                Read the source
+              </a>
+            </div>
           </div>
         </div>
       </section>

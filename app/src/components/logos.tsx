@@ -113,6 +113,39 @@ export function CurveLogo({ size = 16 }: SvgProps) {
   );
 }
 
+export function USDCLogo({ size = 16 }: SvgProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="12" fill="#2775CA" />
+      <path
+        d="M14.8 13.9c0-1-.6-1.7-2-2.2-.95-.35-1.35-.6-1.35-1.05 0-.5.45-.85 1.2-.85.75 0 1.25.3 1.5.95l1.45-.85c-.45-.95-1.3-1.5-2.4-1.65V7.1h-1.4v1.15c-1.4.2-2.45 1.1-2.45 2.4 0 1.05.65 1.8 2.05 2.3 1 .35 1.4.65 1.4 1.1 0 .55-.5.9-1.3.9-.85 0-1.45-.4-1.7-1.1l-1.5.9c.4 1 1.35 1.65 2.45 1.8v1.2h1.4v-1.2c1.55-.2 2.6-1.15 2.6-2.45z"
+        fill="#fff"
+      />
+      <path
+        d="M10.2 5.1a7.1 7.1 0 0 0 0 13.8M13.8 18.9a7.1 7.1 0 0 0 0-13.8"
+        stroke="#fff"
+        strokeWidth="1.1"
+        fill="none"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function ETHLogo({ size = 16 }: SvgProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="12" fill="#627EEA" />
+      <path d="M12 3.4 7.6 11.3 12 13.7z" fill="#fff" opacity=".6" />
+      <path d="M12 3.4l4.4 7.9-4.4-2.4z" fill="#fff" />
+      <path d="M7.6 13.1 12 15.5v5.1z" fill="#fff" opacity=".6" />
+      <path d="M16.4 13.1 12 15.5v5.1z" fill="#fff" />
+      <path d="M12 8.3 7.6 11.3l4.4 2.4z" fill="#fff" opacity=".25" />
+      <path d="M16.4 11.3 12 8.3v5.4z" fill="#fff" opacity=".25" />
+    </svg>
+  );
+}
+
 /* ---------------- category icons (line style) ---------------- */
 
 function LineIcon({ size = 20, children }: { size?: number; children: React.ReactNode }) {

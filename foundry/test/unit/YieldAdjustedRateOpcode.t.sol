@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Context, VM, SwapQuery, SwapRegisters } from "@1inch/swap-vm/libs/VM.sol";
 import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataPtr.sol";
@@ -85,7 +86,8 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
     function _seedSupply(address asset, uint256 amount) internal {
         MockToken(asset).mint(address(this), amount);
         MockToken(asset).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(address(this), asset, amount);
+        IERC20(asset).transfer(address(adapter), amount);
+        adapter.deposit(address(this), asset, amount);
     }
 
     function test_noop_whenRateUnchangedSinceShip() public {

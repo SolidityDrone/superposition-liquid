@@ -38,7 +38,8 @@ contract MaxWithdrawableTest is Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
         assertEq(adapter.maxWithdrawable(maker, address(weth)), 100e18);
     }
@@ -49,7 +50,8 @@ contract MaxWithdrawableTest is Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
 
         pool.simulateDebt(address(weth), 90e18); // utilization 90%
@@ -61,7 +63,8 @@ contract MaxWithdrawableTest is Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
         pool.simulateDebt(address(weth), 100e18);
         assertEq(adapter.maxWithdrawable(maker, address(weth)), 0);
@@ -89,7 +92,8 @@ contract MaxWithdrawableErc4626Test is Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
 
         assertEq(adapter.maxWithdrawable(maker, address(weth)), vault.maxWithdraw(maker));

@@ -67,10 +67,12 @@ contract BaseForkErc4626Test is Test {
         deal(weth, maker, 10e18);
         deal(usdc, maker, 10_000e6);
         vm.startPrank(maker);
-        IERC20(weth).approve(address(adapter), type(uint256).max);
-        IERC20(usdc).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, weth, 10e18);
-        adapter.depositFor(maker, usdc, 10_000e6);
+        IERC20(weth).approve(address(router), type(uint256).max);
+        IERC20(usdc).approve(address(router), type(uint256).max);
+        IERC20(weth).transfer(address(adapter), 10e18);
+        adapter.deposit(maker, weth, 10e18);
+        IERC20(usdc).transfer(address(adapter), 10_000e6);
+        adapter.deposit(maker, usdc, 10_000e6);
         vm.stopPrank();
 
         // shares minted at the vault's current rate
@@ -79,18 +81,22 @@ contract BaseForkErc4626Test is Test {
 
         // withdraw back to recipient, burning maker shares
         vm.startPrank(maker);
-        morphoWeth.approve(address(adapter), type(uint256).max);
-        morphoUsdc.approve(address(adapter), type(uint256).max);
+        morphoWeth.approve(address(router), type(uint256).max);
+        morphoUsdc.approve(address(router), type(uint256).max);
         vm.stopPrank();
 
         uint256 wethBefore = IERC20(weth).balanceOf(recipientAddr());
-        vm.prank(makeAddr("router"));
-        adapter.withdrawTo(maker, weth, 5e18, recipientAddr());
+        (address pTw, uint256 pAw, address pT0w) = adapter.pullPlan(maker, weth, 5e18);
+        vm.prank(maker);
+        IERC20(pTw).transfer(pT0w, pAw);
+        adapter.withdraw(maker, weth, 5e18, pAw, recipientAddr());
         assertEq(IERC20(weth).balanceOf(recipientAddr()) - wethBefore, 5e18);
 
         uint256 usdcBefore = IERC20(usdc).balanceOf(recipientAddr());
-        vm.prank(makeAddr("router"));
-        adapter.withdrawTo(maker, usdc, 5_000e6, recipientAddr());
+        (address pTu, uint256 pAu, address pT0u) = adapter.pullPlan(maker, usdc, 5_000e6);
+        vm.prank(maker);
+        IERC20(pTu).transfer(pT0u, pAu);
+        adapter.withdraw(maker, usdc, 5_000e6, pAu, recipientAddr());
         assertEq(IERC20(usdc).balanceOf(recipientAddr()) - usdcBefore, 5_000e6);
     }
 
@@ -116,12 +122,14 @@ contract BaseForkErc4626Test is Test {
         deal(weth, maker, wethReal);
         deal(usdc, maker, usdcReal);
         vm.startPrank(maker);
-        IERC20(weth).approve(address(adapter), type(uint256).max);
-        IERC20(usdc).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, weth, wethReal);
-        adapter.depositFor(maker, usdc, usdcReal);
-        morphoWeth.approve(address(adapter), type(uint256).max);
-        morphoUsdc.approve(address(adapter), type(uint256).max);
+        IERC20(weth).approve(address(router), type(uint256).max);
+        IERC20(usdc).approve(address(router), type(uint256).max);
+        IERC20(weth).transfer(address(adapter), wethReal);
+        adapter.deposit(maker, weth, wethReal);
+        IERC20(usdc).transfer(address(adapter), usdcReal);
+        adapter.deposit(maker, usdc, usdcReal);
+        morphoWeth.approve(address(router), type(uint256).max);
+        morphoUsdc.approve(address(router), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max);
         SideConfig[] memory sides = new SideConfig[](2);
@@ -162,7 +170,7 @@ contract BaseForkErc4626Test is Test {
                     uint8(CHAINLINK_GUARD_XD),
                     uint8(92),
                     GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
+                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
                     ),
                     uint8(36), uint8(20),
                     CapitalArgsBuilder.build(weth)

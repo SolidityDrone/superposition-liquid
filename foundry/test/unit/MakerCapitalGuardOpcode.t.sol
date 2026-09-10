@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Context, VM, SwapQuery, SwapRegisters } from "@1inch/swap-vm/libs/VM.sol";
 import { CalldataPtr } from "@1inch/solidity-utils/contracts/libraries/CalldataPtr.sol";
@@ -85,7 +86,8 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         weth.mint(maker, 50e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 50e18);
+        IERC20(address(weth)).transfer(address(adapter), 50e18);
+        adapter.deposit(maker, address(weth), 50e18);
         vm.stopPrank();
 
         this._execExternal(address(usdc), address(weth), 40e18, _args());
@@ -95,7 +97,8 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         weth.mint(maker, 10e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 10e18);
+        IERC20(address(weth)).transfer(address(adapter), 10e18);
+        adapter.deposit(maker, address(weth), 10e18);
         vm.stopPrank();
 
         vm.expectRevert(abi.encodeWithSelector(MakerCapitalInsufficient.selector, 10e18, 40e18));
@@ -107,7 +110,8 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         weth.mint(maker, 40e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 40e18);
+        IERC20(address(weth)).transfer(address(adapter), 40e18);
+        adapter.deposit(maker, address(weth), 40e18);
         // maker drains their position: real capital behind the shipped inventory is gone
         aWethToken.transfer(address(1), 40e18);
         vm.stopPrank();
@@ -121,7 +125,8 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
         pool.simulateDebt(address(weth), 95e18); // only 5 WETH cash left
 

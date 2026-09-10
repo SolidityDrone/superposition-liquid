@@ -58,12 +58,14 @@ contract BaseForkStargateTest is Test {
         deal(USDC, maker, 5_000e6);
         deal(WETH, maker, 8e18);
         vm.startPrank(maker);
-        IERC20(USDC).approve(address(adapter), type(uint256).max);
+        IERC20(USDC).approve(address(router), type(uint256).max);
         IERC20(USDC).approve(address(AQUA), type(uint256).max);
         IERC20(WETH).approve(address(AQUA), type(uint256).max);
+        IERC20(WETH).approve(address(router), type(uint256).max);
         // deposit + stake the maker's USDC (real pool.deposit + real staking.deposit)
         stakedBefore = lp.balanceOf(address(STARGATE_STAKING));
-        adapter.depositFor(maker, USDC, 5_000e6);
+        IERC20(USDC).transfer(address(adapter), 5_000e6);
+        adapter.deposit(maker, USDC, 5_000e6);
         assertEq(lp.balanceOf(address(STARGATE_STAKING)) - stakedBefore, 5_000e6);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: WETH, adapter: address(adapter), kind: AdapterKind.Stargate, autoManaged: true });

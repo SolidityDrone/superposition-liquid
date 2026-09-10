@@ -36,7 +36,8 @@ contract StargateAdapterTest is Test {
         usdc.mint(maker, usdcAmount);
         vm.startPrank(maker);
         usdc.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(usdc), usdcAmount);
+        IERC20(address(usdc)).transfer(address(adapter), usdcAmount);
+        adapter.deposit(maker, address(usdc), usdcAmount);
         vm.stopPrank();
     }
 
@@ -64,8 +65,10 @@ contract StargateAdapterTest is Test {
 
     function test_withdrawTo_unstakesRedeemsAndDelivers() public {
         _seedMaker(10_000e6);
-        vm.prank(router);
-        adapter.withdrawTo(maker, address(usdc), 4_000e6, recipient);
+        // pullPlan returns nothing to pull: the LP is staked by the adapter itself
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 4_000e6);
+        assertEq(pT, address(0));
+        adapter.withdraw(maker, address(usdc), 4_000e6, 4_000e6, recipient);
 
         assertEq(usdc.balanceOf(recipient), 4_000e6);
         assertEq(staking.stakedBalanceOf(address(adapter)), 6_000e6); // unstaked instantly
@@ -75,9 +78,10 @@ contract StargateAdapterTest is Test {
     /// the JIT constraint: the pool's local credit caps instant redemptions
     function test_withdrawTo_revertsBeyondPoolCredit() public {
         _seedMaker(60_000e6); // staked 60k, but credit is 50k
-        vm.prank(router);
-        vm.expectRevert(); // the pool's own credit revert (insufficient credit)
-        adapter.withdrawTo(maker, address(usdc), 55_000e6, recipient);
+        // the pool's own credit revert (insufficient credit) — atomic in the fill:
+        // the pull would revert with the withdrawal too
+        vm.expectRevert();
+        adapter.withdraw(maker, address(usdc), 55_000e6, 55_000e6, recipient);
     }
 
     /// the guard oracle: redeemable() = min(pool credit, staked position)
@@ -96,12 +100,14 @@ contract StargateAdapterTest is Test {
         wethToken.mint(maker, 5e18);
         vm.startPrank(maker);
         IERC20(address(wethToken)).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(wethToken), 5e18);
+        IERC20(address(wethToken)).transfer(address(adapter), 5e18);
+        adapter.deposit(maker, address(wethToken), 5e18);
         vm.stopPrank();
 
         assertEq(wethToken.balanceOf(maker), 5e18); // untouched
-        vm.prank(router);
-        adapter.withdrawTo(maker, address(wethToken), 1e18, recipient); // no-op
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(wethToken), 1e18);
+        assertEq(pT, address(0)); // passthrough: the plan pulls nothing
+        adapter.withdraw(maker, address(wethToken), 1e18, 0, recipient); // no-op
         assertEq(wethToken.balanceOf(maker), 5e18);
     }
 }

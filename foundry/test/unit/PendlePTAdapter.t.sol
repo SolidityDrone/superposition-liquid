@@ -64,7 +64,9 @@ contract PendlePTAdapterTest is Test {
     function test_withdrawTo_redeemsPTAndDeliversUnderlying() public {
         _seedMaker(10_000e6);
         vm.prank(router);
-        adapter.withdrawTo(maker, address(usdc), 4_000e6, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 4_000e6);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(usdc), 4_000e6, adapter.underlyingToYield(address(usdc), 4_000e6), recipient);
 
         assertEq(usdc.balanceOf(recipient), 4_000e6); // exact delivery
         assertEq(pt.balanceOf(maker), 6_000e6 - 100); // + the 100-wei pull buffer
@@ -83,7 +85,8 @@ contract PendlePTAdapterTest is Test {
         wethToken.mint(maker, 5e18);
         vm.startPrank(maker);
         IERC20(address(wethToken)).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(wethToken), 5e18);
+        IERC20(address(wethToken)).transfer(address(adapter), 5e18);
+        adapter.deposit(maker, address(wethToken), 5e18);
         vm.stopPrank();
         assertEq(wethToken.balanceOf(maker), 5e18); // untouched
     }
@@ -91,8 +94,9 @@ contract PendlePTAdapterTest is Test {
     function test_passthrough_side_withdrawIsNoOp() public {
         MockToken wethToken = new MockToken("WETH");
         wethToken.mint(maker, 5e18);
-        vm.prank(router);
-        adapter.withdrawTo(maker, address(wethToken), 1e18, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(wethToken), 1e18);
+        assertEq(pT, address(0)); // passthrough: the plan pulls nothing
+        adapter.withdraw(maker, address(wethToken), 1e18, 0, recipient);
         // no-op: Aqua's default transfer handles delivery from the maker wallet
         assertEq(wethToken.balanceOf(maker), 5e18);
         assertEq(wethToken.balanceOf(recipient), 0);

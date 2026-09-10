@@ -53,8 +53,10 @@ contract MockERC4626Vault is ERC20, IERC4626 {
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256) {
         uint256 shares = _ceilShares(assets);
         require(balanceOf(owner) >= shares, "insufficient shares");
-        require(allowance(owner, msg.sender) >= shares, "insufficient allowance");
-        _spendAllowance(owner, msg.sender, shares);
+        if (owner != msg.sender) {
+            require(allowance(owner, msg.sender) >= shares, "insufficient allowance");
+            _spendAllowance(owner, msg.sender, shares);
+        }
         _totalAssets -= assets;
         _burn(owner, shares);
         IERC20(ASSET).transfer(receiver, assets);
@@ -70,8 +72,11 @@ contract MockERC4626Vault is ERC20, IERC4626 {
     }
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256) {
-        require(allowance(owner, msg.sender) >= shares, "insufficient allowance");
-        _spendAllowance(owner, msg.sender, shares);
+        // ERC-4626: the allowance check is skipped when the owner IS the caller
+        if (owner != msg.sender) {
+            require(allowance(owner, msg.sender) >= shares, "insufficient allowance");
+            _spendAllowance(owner, msg.sender, shares);
+        }
         uint256 assets = convertToAssets(shares);
         _totalAssets -= assets;
         _burn(owner, shares);

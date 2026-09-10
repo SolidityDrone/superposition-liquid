@@ -60,7 +60,9 @@ contract PendleActivePTAdapterTest is Test {
 
     function test_active_withdrawTo_swapsAndDelivers() public {
         vm.prank(router);
-        adapter.withdrawTo(maker, address(usdc), 4_000e6, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 4_000e6);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(usdc), 4_000e6, adapter.underlyingToYield(address(usdc), 4_000e6), recipient);
 
         // exact delivery, buffer surplus returns to the maker
         assertEq(usdc.balanceOf(recipient), 4_000e6);
@@ -73,9 +75,13 @@ contract PendleActivePTAdapterTest is Test {
         // delivers far less than the oracle-priced pull expected, beyond the buffer
         oracle.setRate(95e16); // TWAP stays high
         market.setPtPrice(50e16); // spot crashes
-        vm.prank(router);
+        // atomic in the fill: the (buffered) pull and the losing swap revert together
+        vm.startPrank(maker);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 4_000e6);
+        IERC20(pT).transfer(pT0, pA);
         vm.expectRevert(PendlePTAdapter.PendleSwapShortfall.selector);
-        adapter.withdrawTo(maker, address(usdc), 4_000e6, recipient);
+        adapter.withdraw(maker, address(usdc), 4_000e6, pA, recipient);
+        vm.stopPrank();
     }
 
     function test_swapCallback_onlyMarketCanCall() public {

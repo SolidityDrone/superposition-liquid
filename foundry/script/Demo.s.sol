@@ -61,12 +61,14 @@ contract Demo is Script, StdCheats {
         vm.startBroadcast(MAKER_KEY);
         deal(weth, maker, 105e18);
         deal(usdc, maker, 262_500e6);
-        IERC20(weth).approve(address(adapter), type(uint256).max);
-        IERC20(usdc).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, weth, 105e18);
-        adapter.depositFor(maker, usdc, 262_500e6);
-        IERC20(aWeth).approve(address(adapter), type(uint256).max);
-        IERC20(aUsdc).approve(address(adapter), type(uint256).max);
+        IERC20(weth).approve(address(router), type(uint256).max);
+        IERC20(usdc).approve(address(router), type(uint256).max);
+        IERC20(weth).transfer(address(adapter), 105e18);
+        adapter.deposit(maker, weth, 105e18);
+        IERC20(usdc).transfer(address(adapter), 262_500e6);
+        adapter.deposit(maker, usdc, 262_500e6);
+        IERC20(aWeth).approve(address(router), type(uint256).max);
+        IERC20(aUsdc).approve(address(router), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max); // reverse-direction pulls
         SideConfig[] memory sides = new SideConfig[](2);

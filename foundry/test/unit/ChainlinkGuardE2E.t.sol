@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Aqua } from "@1inch/aqua/src/Aqua.sol";
 import { ISwapVM } from "@1inch/swap-vm/interfaces/ISwapVM.sol";
@@ -72,11 +73,13 @@ contract ChainlinkGuardE2ETest is Test {
         weth.mint(maker, wethReal);
         usdc.mint(maker, usdcReal);
         vm.startPrank(maker);
-        weth.approve(address(adapter), type(uint256).max);
-        usdc.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), wethReal);
-        adapter.depositFor(maker, address(usdc), usdcReal);
-        aToken.approve(address(adapter), type(uint256).max);
+        weth.approve(address(router), type(uint256).max);
+        usdc.approve(address(router), type(uint256).max);
+        IERC20(address(weth)).transfer(address(adapter), wethReal);
+        adapter.deposit(maker, address(weth), wethReal);
+        IERC20(address(usdc)).transfer(address(adapter), usdcReal);
+        adapter.deposit(maker, address(usdc), usdcReal);
+        aToken.approve(address(router), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });

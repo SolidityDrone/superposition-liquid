@@ -65,15 +65,17 @@ contract BaseForkMixedAdaptersTest is Test {
         deal(weth, maker, wethReal);
         deal(usdc, maker, usdcReal);
         vm.startPrank(maker);
-        IERC20(weth).approve(address(aaveAdapter), type(uint256).max);
-        aaveAdapter.depositFor(maker, weth, wethReal);
-        IERC20(usdc).approve(address(morphoAdapter), type(uint256).max);
-        morphoAdapter.depositFor(maker, usdc, usdcReal);
+        IERC20(weth).approve(address(router), type(uint256).max);
+        IERC20(weth).transfer(address(aaveAdapter), wethReal);
+        aaveAdapter.deposit(maker, weth, wethReal);
+        IERC20(usdc).approve(address(router), type(uint256).max);
+        IERC20(usdc).transfer(address(morphoAdapter), usdcReal);
+        morphoAdapter.deposit(maker, usdc, usdcReal);
         // per-side JIT pull approvals: yield tokens -> their own adapter,
         // underlyings -> Aqua registry (for the reverse-direction pulls)
-        IERC20(aWeth).approve(address(aaveAdapter), type(uint256).max);
+        IERC20(aWeth).approve(address(router), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
-        IERC20(morphoUsdcVault).approve(address(morphoAdapter), type(uint256).max);
+        IERC20(morphoUsdcVault).approve(address(router), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: weth, adapter: address(aaveAdapter), kind: AdapterKind.AaveV3, autoManaged: true });
@@ -119,7 +121,7 @@ contract BaseForkMixedAdaptersTest is Test {
                     uint8(CHAINLINK_GUARD_XD),
                     uint8(92),
                     GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
+                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
                     ),
                     uint8(36), uint8(20),
                     CapitalArgsBuilder.build(weth)

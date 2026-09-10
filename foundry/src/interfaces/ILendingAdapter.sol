@@ -22,15 +22,30 @@ interface ILendingAdapter {
     /// Used by the SwapVM opcode for accurate quoting.
     function exchangeRate(address underlying) external view returns (uint256);
 
+    /// @notice The pull plan the ROUTER executes before the adapter acts: which
+    /// token, how much, delivered where. Protocol quirks (rounding-up counts,
+    /// swap-leg buffers) stay inside the adapter; the router only executes.
+    /// The spender is always the ROUTER (maker approved it once per token), so
+    /// adapters never need allowances.
+    function pullPlan(address maker, address underlying, uint256 underlyingAmount)
+        external view
+        returns (address token, uint256 amount, address to);
+
     /// @notice Withdraw `underlyingAmount` of `underlying` from the protocol on behalf of
     /// `maker`, sending real tokens to `recipient`. Pulls the equivalent yield tokens from
     /// the maker wallet — maker must have approved this adapter for yield token spending.
-    function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external;
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 underlyingAmount,
+        uint256 yieldAmount,
+        address recipient
+    ) external;
 
     /// @notice Deposit `underlyingAmount` of `underlying` into the protocol on behalf of
     /// `maker`. Pulls the tokens from the maker wallet — maker must have approved this
     /// adapter for underlying spending.
-    function depositFor(address maker, address underlying, uint256 underlyingAmount) external;
+    function deposit(address maker, address underlying, uint256 underlyingAmount) external;
 
     /// @notice Simulates an actual withdrawal: the underlying amount that can really be
     /// withdrawn for `maker` right now. Capped by BOTH the maker's position and the

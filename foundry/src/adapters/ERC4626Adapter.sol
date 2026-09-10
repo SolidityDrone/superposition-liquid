@@ -57,11 +57,31 @@ contract ERC4626Adapter is ILendingAdapter {
         return assets * WAD / oneShare;
     }
 
-    /// @notice Withdraws underlying on behalf of maker: redeem from the vault straight
-    ///         to recipient (the vault burns the maker's shares — maker approved this
-    ///         adapter for the vault shares).
-    function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external {
-        vaultOf[underlying].withdraw(underlyingAmount, recipient, maker);
+    /// @dev The vault shares were pulled maker -> this adapter by the ROUTER
+    ///      (plan: `underlyingToYield`, rounded up): redeeming them from this
+    ///      adapter's balance delivers underlying to the recipient.
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 underlyingAmount,
+        uint256 yieldAmount,
+        address recipient
+    ) external {
+        maker;
+        underlying;
+        vaultOf[underlying].redeem(yieldAmount, recipient, address(this));
+    }
+
+    /// @dev Pull plan: the share count covering `underlyingAmount`, rounded up,
+    ///      delivered to this adapter.
+    function pullPlan(address maker, address underlying, uint256 underlyingAmount)
+        external view
+        returns (address token, uint256 amount, address to)
+    {
+        maker;
+        token = address(vaultOf[underlying]);
+        amount = this.underlyingToYield(underlying, underlyingAmount);
+        to = address(this);
     }
 
     /// @notice Simulated withdrawal: the vault's own maxWithdraw (4626 standard),
@@ -70,11 +90,9 @@ contract ERC4626Adapter is ILendingAdapter {
         return vaultOf[underlying].maxWithdraw(maker);
     }
 
-    /// @notice Deposits underlying on behalf of maker: pulls tokens from the maker
-    ///         wallet (tokenIn arrives there after the swap), deposits into the vault
-    ///         minting shares to the maker.
-    function depositFor(address maker, address underlying, uint256 underlyingAmount) external {
-        IERC20(underlying).safeTransferFrom(maker, address(this), underlyingAmount);
+    /// @dev The underlying was pulled maker -> this adapter by the ROUTER:
+    ///      deposits into the vault minting shares to the maker.
+    function deposit(address maker, address underlying, uint256 underlyingAmount) external {
         IERC20(underlying).forceApprove(address(vaultOf[underlying]), underlyingAmount);
         vaultOf[underlying].deposit(underlyingAmount, maker);
     }

@@ -49,7 +49,8 @@ abstract contract ERC4626AdapterTest is Test {
         MockToken(underlying).mint(maker, amount);
         vm.startPrank(maker);
         IERC20(underlying).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, underlying, amount);
+        IERC20(underlying).transfer(address(adapter), amount);
+        adapter.deposit(maker, underlying, amount);
         vm.stopPrank();
     }
 
@@ -81,7 +82,8 @@ abstract contract ERC4626AdapterTest is Test {
         weth.mint(maker, 100e18);
         vm.startPrank(maker);
         weth.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 100e18);
+        IERC20(address(weth)).transfer(address(adapter), 100e18);
+        adapter.deposit(maker, address(weth), 100e18);
         vm.stopPrank();
 
         assertEq(weth.balanceOf(address(vault)), 100e18);
@@ -96,7 +98,9 @@ abstract contract ERC4626AdapterTest is Test {
         vm.stopPrank();
 
         vm.prank(router);
-        adapter.withdrawTo(maker, address(weth), 40e18, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(weth), 40e18);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(weth), 40e18, adapter.underlyingToYield(address(weth), 40e18), recipient);
 
         assertEq(weth.balanceOf(recipient), 40e18);
         assertEq(vault.balanceOf(maker), 60e18);
@@ -110,7 +114,9 @@ abstract contract ERC4626AdapterTest is Test {
         vm.stopPrank();
 
         vm.prank(router);
-        adapter.withdrawTo(maker, address(weth), 100e18, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(weth), 100e18);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(weth), 100e18, adapter.underlyingToYield(address(weth), 100e18), recipient);
 
         assertEq(weth.balanceOf(recipient), 100e18);
         assertEq(vault.balanceOf(maker), 20e18); // 100 assets = 80 shares burned... +1 rounding guard
@@ -124,7 +130,9 @@ abstract contract ERC4626AdapterTest is Test {
         vm.stopPrank();
 
         vm.prank(router);
-        adapter.withdrawTo(maker, address(weth), 50e18, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(weth), 50e18);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(weth), 50e18, adapter.underlyingToYield(address(weth), 50e18), recipient);
         assertEq(weth.balanceOf(recipient), 50e18);
         assertGe(adapter.yieldToUnderlying(address(weth), vault.balanceOf(maker)), 50e18);
     }

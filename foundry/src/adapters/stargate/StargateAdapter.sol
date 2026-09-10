@@ -38,8 +38,8 @@ interface IStargateStakingLike {
 /// @notice Bridge-liquidity maker: capital sits in a Stargate V2 pool, staked for
 /// rewards. The maker provides bridge liquidity (the liquidity the protocol uses for
 /// cross-chain swaps) and earns the protocol's reward stream.
-///   depositFor: pull underlying -> pool.deposit (LP 1:1) -> staking.deposit (staked)
-///   withdrawTo: staking.withdraw (INSTANT, verified in source) -> pool.redeem -> deliver
+///   deposit: (router pulled) pool.deposit (LP 1:1) -> staking.deposit (staked)
+///   withdraw: staking.withdraw (INSTANT, verified in source) -> pool.redeem -> deliver
 /// Foreign strategy sides (e.g. the ETH side of an ETH/USDC market) are passthrough.
 /// @dev The JIT constraint is the pool's local credit: redemptions beyond it revert.
 ///      The capital guard uses the pool's `redeemable()` view (min(credit, position))
@@ -93,7 +93,15 @@ contract StargateAdapter is ILendingAdapter {
         return amount; // 1:1
     }
 
-    function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external {
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 underlyingAmount,
+        uint256 yieldAmount,
+        address recipient
+    ) external {
+        maker;
+        yieldAmount;
         if (underlying != address(UNDERLYING)) return; // passthrough: default transfer delivers
         if (staked < underlyingAmount) revert InsufficientStaked();
         // unstake (instant, verified: no lock/cooldown in StargateStaking) then redeem
@@ -106,11 +114,14 @@ contract StargateAdapter is ILendingAdapter {
         if (surplus > 0) IERC20(underlying).safeTransfer(maker, surplus);
     }
 
-    /// @notice no-op for the underlying too? No: received underlying (fill revenue)
-    /// gets deposited AND staked — same as the Aave supply flow.
-    function depositFor(address maker, address underlying, uint256 underlyingAmount) external {
-        if (underlying != address(UNDERLYING)) return; // passthrough
-        IERC20(underlying).safeTransferFrom(maker, address(this), underlyingAmount);
+    /// @dev Received underlying (fill revenue) gets deposited AND staked — same
+    ///      as the Aave supply flow. Passthrough sides are echoed back to the
+    ///      maker wallet (revenue stays idle there, never stuck in the adapter).
+    function deposit(address maker, address underlying, uint256 underlyingAmount) external {
+        if (underlying != address(UNDERLYING)) {
+            IERC20(underlying).safeTransfer(maker, underlyingAmount);
+            return;
+        }
         IERC20(underlying).forceApprove(address(POOL), underlyingAmount);
         POOL.deposit(address(this), underlyingAmount); // mints LP to this adapter
         IERC20(address(LP)).forceApprove(address(STAKING), underlyingAmount);
@@ -121,6 +132,15 @@ contract StargateAdapter is ILendingAdapter {
     /// @notice JIT oracle: the pool's own redeemable() = min(local credit, position).
     /// For the underlying we take min(redeemable-of-the-staked-LP, staked balance):
     /// redeemable(address(0)) is the pool-wide credit cap.
+    function pullPlan(address maker, address underlying, uint256 underlyingAmount)
+        external view
+        returns (address token, uint256 amount, address to)
+    {
+        // the LP is staked by THIS adapter — nothing to pull from the maker
+        maker; underlying; underlyingAmount;
+        return (address(0), 0, address(0));
+    }
+
     function maxWithdrawable(address maker, address underlying) external view returns (uint256) {
         if (underlying != address(UNDERLYING)) return IERC20(underlying).balanceOf(maker); // passthrough
         maker; // single-maker adapter: the staked position is the maker's

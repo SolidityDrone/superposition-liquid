@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
@@ -65,8 +66,9 @@ contract AaveV3AdapterTest is Test {
         vm.stopPrank();
 
         address router = makeAddr("router");
-        vm.prank(router); // caller is the router, funds come from maker wallet
-        adapter.depositFor(maker, address(usdc), 10_000e6);
+        vm.prank(maker); // the router executes the pull with its maker allowance
+        IERC20(address(usdc)).transfer(address(adapter), 10_000e6);
+        adapter.deposit(maker, address(usdc), 10_000e6);
 
         assertEq(usdc.balanceOf(address(pool)), 10_000e6);
         assertEq(aTokenUsdc.balanceOf(maker), 10_000e6); // 1:1 at index 1.0
@@ -77,14 +79,17 @@ contract AaveV3AdapterTest is Test {
         usdc.mint(maker, 100e6);
         vm.startPrank(maker);
         usdc.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(usdc), 100e6);
+        IERC20(address(usdc)).transfer(address(adapter), 100e6);
+        adapter.deposit(maker, address(usdc), 100e6);
         // maker approves adapter for aToken spending (per approvals table)
         aTokenUsdc.approve(address(adapter), type(uint256).max);
         vm.stopPrank();
 
         address router = makeAddr("router");
         vm.prank(router);
-        adapter.withdrawTo(maker, address(usdc), 40e6, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 40e6);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(usdc), 40e6, adapter.underlyingToYield(address(usdc), 40e6), recipient);
 
         assertEq(usdc.balanceOf(recipient), 40e6);
         assertEq(aTokenUsdc.balanceOf(maker), 60e6);
@@ -95,7 +100,8 @@ contract AaveV3AdapterTest is Test {
         usdc.mint(maker, 100e6);
         vm.startPrank(maker);
         usdc.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(usdc), 100e6);
+        IERC20(address(usdc)).transfer(address(adapter), 100e6);
+        adapter.deposit(maker, address(usdc), 100e6);
         aTokenUsdc.approve(address(adapter), type(uint256).max);
         vm.stopPrank();
 
@@ -104,7 +110,9 @@ contract AaveV3AdapterTest is Test {
 
         address router = makeAddr("router");
         vm.prank(router);
-        adapter.withdrawTo(maker, address(usdc), 100e6, recipient);
+        (address pT, uint256 pA, address pT0) = adapter.pullPlan(maker, address(usdc), 100e6);
+        vm.prank(maker); IERC20(pT).transfer(pT0, pA);
+        adapter.withdraw(maker, address(usdc), 100e6, adapter.underlyingToYield(address(usdc), 100e6), recipient);
 
         // 100 underlying withdrawn costs 80 aTokens at index 1.25; 20 aTokens (≈25 underlying) remain
         assertEq(usdc.balanceOf(recipient), 100e6);

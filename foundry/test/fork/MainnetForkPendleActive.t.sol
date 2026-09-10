@@ -60,9 +60,11 @@ contract MainnetForkPendleActiveTest is Test {
         deal(address(pt), maker, 100e18);
         deal(USDC, maker, 100_000e6);
         vm.startPrank(maker);
-        pt.approve(address(adapter), type(uint256).max);
+        pt.approve(address(router), type(uint256).max); // the router pulls PT for the JIT delivery
         IERC20(WSTETH).approve(address(AQUA), type(uint256).max);
         IERC20(USDC).approve(address(AQUA), type(uint256).max);
+        IERC20(USDC).approve(address(router), type(uint256).max); // revenue echo-back
+        IERC20(WSTETH).approve(address(router), type(uint256).max); // reverse-fill deposit pull
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: WSTETH, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });
         sides[1] = SideConfig({ underlying: USDC, adapter: address(adapter), kind: AdapterKind.PendlePT, autoManaged: true });

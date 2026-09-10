@@ -27,8 +27,9 @@ interface ISYLike {
 /// @notice Fixed-income adapter: maker capital sits in an EXPIRED Pendle PT — a zero-coupon
 /// claim redeemable 1:1 for the underlying. Post-maturity redemption is pure Pendle
 /// mechanics, no swap legs:
-///   withdrawTo: pull PT -> send to the YT contract -> YT.redeemPY() -> SY -> SY.redeem(USDC)
-///   depositFor: no-op (an expired PT cannot be re-minted; fill revenue stays in the maker wallet)
+///   pullPlan: the PT count (expired: +dust buffer, active: +1% swap buffer)
+///   withdraw: (router pulled PT) YT.redeemPY() -> SY -> SY.redeem(USDC) or AMM swap
+///   deposit: echo-back (PT cannot be re-minted; fill revenue stays in the maker wallet)
 /// Foreign strategy sides (e.g. the ETH side of an ETH/USDC market) are passthrough.
 ///      For ACTIVE (unmatured) markets the adapter supports the real fixed-income flow:
 ///      PT trades below par (the implied-yield discount) and appreciates toward 1 asset
@@ -120,27 +121,43 @@ contract PendlePTAdapter is ILendingAdapter, IPMarketSwapCallbackLike {
         return amount * exchangeRate(underlying) / 1e18;
     }
 
-    function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external {
+    /// @dev Pull plan: expired PT redeems 1:1 but the PT->SY rounding dust needs a
+    ///      small buffer; active markets lose a small spread on the swap leg, so a
+    ///      1% buffer (surplus returns to the maker wallet after the delivery).
+    function pullPlan(address maker, address underlying, uint256 underlyingAmount)
+        external view
+        returns (address token, uint256 amount, address to)
+    {
+        if (underlying != ASSET) return (address(0), 0, address(0));
+        uint256 ptAmount = isExpiredMarket
+            ? underlyingAmount + PT_PULL_BUFFER
+            : this.underlyingToYield(underlying, underlyingAmount * (BPS + BUFFER_BPS) / BPS);
+        return (address(PT), ptAmount, isExpiredMarket ? address(YT) : address(this));
+    }
+
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 underlyingAmount,
+        uint256 yieldAmount,
+        address recipient
+    ) external {
+        maker;
+        yieldAmount;
         if (underlying != ASSET) return; // passthrough: Aqua's default transfer delivers
-        // buffer: the swap leg loses a small spread vs the oracle rate; surplus returns
-        // to the maker wallet after the exact delivery
-        // expired: 1:1 redemption, only the rounding dust buffer; active: the market
-        // swap leg loses a small spread vs the oracle rate, so pull with a buffer
         uint256 ptAmount = isExpiredMarket
             ? underlyingAmount + PT_PULL_BUFFER
             : this.underlyingToYield(underlying, underlyingAmount * (BPS + BUFFER_BPS) / BPS);
 
         if (isExpiredMarket) {
             // redemption chain (official router pattern):
-            // PT -> YT contract -> YT.redeemPY() -> SY -> SY.redeem(underlying) -> deliver
-            IERC20(PT).safeTransferFrom(maker, address(YT), ptAmount);
+            // PT (pulled here) -> YT.redeemPY() -> SY -> SY.redeem(underlying) -> deliver
             uint256 syOut = YT.redeemPY(address(this));
             uint256 out = SY.redeem(address(this), syOut, underlying, 0, false);
             if (out + PT_PULL_BUFFER < underlyingAmount) revert PendleRedemptionShortfall();
         } else {
             // active market: sell PT for SY on the market's AMM (callback pattern),
             // then redeem SY to the underlying
-            IERC20(PT).safeTransferFrom(maker, address(this), ptAmount);
             IERC20(PT).forceApprove(address(MARKET), ptAmount);
             IPMarketLike2(MARKET).swapExactPtForSy(address(this), ptAmount, CALLBACK_DATA);
             uint256 syOut = IERC20(SYy()).balanceOf(address(this));
@@ -167,11 +184,14 @@ contract PendlePTAdapter is ILendingAdapter, IPMarketSwapCallbackLike {
         if (ptToAccount < 0) IERC20(PT).safeTransfer(MARKET, uint256(-ptToAccount));
     }
 
-    /// @notice no-op: an expired PT cannot be re-minted. Fill revenue (tokenIn) stays in
-    /// the maker wallet — the fixed yield was already locked when the PT was bought.
-    function depositFor(address maker, address underlying, uint256 underlyingAmount) external {
-        if (underlying != ASSET) return; // passthrough: revenue stays in the maker wallet
-        underlying; maker; underlyingAmount;
+    /// @dev Echo-back: PT cannot be re-minted from the underlying — fill revenue
+    ///      (asset OR passthrough side) stays in the maker wallet. The ROUTER
+    ///      pulled it here; return it untouched.
+    function deposit(address maker, address underlying, uint256 underlyingAmount) external {
+        underlying;
+        maker;
+        underlyingAmount;
+        IERC20(underlying).safeTransfer(maker, underlyingAmount);
     }
 
     function maxWithdrawable(address maker, address underlying) external view returns (uint256) {

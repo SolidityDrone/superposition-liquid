@@ -59,14 +59,31 @@ contract AaveV3Adapter is ILendingAdapter {
         return scaledTotal * uint256(reserve.liquidityIndex) * WAD / (displayedTotal * RAY);
     }
 
-    /// @notice Withdraws underlying on behalf of maker.
-    /// Pulls the equivalent displayed aTokens from the maker wallet (maker approved this
-    /// adapter), then withdraws from Aave sending real tokens to recipient.
-    function withdrawTo(address maker, address underlying, uint256 underlyingAmount, address recipient) external {
-        address aToken = AAVE_POOL.getReserveData(underlying).aTokenAddress;
-        uint256 aTokenAmount = this.underlyingToYield(underlying, underlyingAmount);
-        IERC20(aToken).safeTransferFrom(maker, address(this), aTokenAmount);
+    /// @dev The aTokens were pulled maker -> this adapter by the ROUTER (plan:
+    ///      displayed count for the underlying, rounded up) — the pool burns them
+    ///      from this adapter's balance and delivers real tokens to recipient.
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 underlyingAmount,
+        uint256 yieldAmount,
+        address recipient
+    ) external {
+        maker;
+        yieldAmount;
         AAVE_POOL.withdraw(underlying, underlyingAmount, recipient);
+    }
+
+    /// @dev Pull plan for the JIT delivery: the displayed aToken count covering
+    ///      `underlyingAmount`, rounded up, delivered to this adapter.
+    function pullPlan(address maker, address underlying, uint256 underlyingAmount)
+        external view
+        returns (address token, uint256 amount, address to)
+    {
+        maker;
+        token = AAVE_POOL.getReserveData(underlying).aTokenAddress;
+        amount = this.underlyingToYield(underlying, underlyingAmount);
+        to = address(this);
     }
 
     /// @notice Simulated withdrawal: min(maker position, pool cash).
@@ -83,11 +100,9 @@ contract AaveV3Adapter is ILendingAdapter {
         return position < cash ? position : cash;
     }
 
-    /// @notice Deposits underlying on behalf of maker.
-    /// Pulls tokens from the maker wallet (tokenIn arrives there after the swap),
-    /// supplies to Aave minting displayed aTokens to the maker.
-    function depositFor(address maker, address underlying, uint256 underlyingAmount) external {
-        IERC20(underlying).safeTransferFrom(maker, address(this), underlyingAmount);
+    /// @dev The underlying was pulled maker -> this adapter by the ROUTER:
+    ///      supplies to Aave minting displayed aTokens to the maker.
+    function deposit(address maker, address underlying, uint256 underlyingAmount) external {
         IERC20(underlying).forceApprove(address(AAVE_POOL), underlyingAmount);
         AAVE_POOL.supply(underlying, underlyingAmount, maker, 0);
     }

@@ -57,12 +57,14 @@ contract BaseForkTest is Test {
         deal(weth, maker, wethReal);
         deal(usdc, maker, usdcReal);
         vm.startPrank(maker);
-        IERC20(weth).approve(address(adapter), type(uint256).max);
-        IERC20(usdc).approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, weth, wethReal);
-        adapter.depositFor(maker, usdc, usdcReal);
-        IERC20(aWeth).approve(address(adapter), type(uint256).max);
-        IERC20(aUsdc).approve(address(adapter), type(uint256).max);
+        IERC20(weth).approve(address(router), type(uint256).max);
+        IERC20(usdc).approve(address(router), type(uint256).max);
+        IERC20(weth).transfer(address(adapter), wethReal);
+        adapter.deposit(maker, weth, wethReal);
+        IERC20(usdc).transfer(address(adapter), usdcReal);
+        adapter.deposit(maker, usdc, usdcReal);
+        IERC20(aWeth).approve(address(router), type(uint256).max);
+        IERC20(aUsdc).approve(address(router), type(uint256).max);
         IERC20(weth).approve(address(aqua), type(uint256).max);
         IERC20(usdc).approve(address(aqua), type(uint256).max); // reverse-direction pulls
         SideConfig[] memory sides = new SideConfig[](2);
@@ -105,7 +107,7 @@ contract BaseForkTest is Test {
                     uint8(CHAINLINK_GUARD_XD),
                     uint8(92),
                     GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
+                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
                     ),
                     uint8(36), uint8(20),
                     CapitalArgsBuilder.build(weth)

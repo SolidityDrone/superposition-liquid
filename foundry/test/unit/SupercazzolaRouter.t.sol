@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import { Test } from "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { console2 } from "forge-std/console2.sol";
 
 import { Aqua } from "@1inch/aqua/src/Aqua.sol";
@@ -70,12 +71,14 @@ contract SupercazzolaRouterTest is Test {
         weth.mint(maker, 105e18);
         usdc.mint(maker, 4500e6);
         vm.startPrank(maker);
-        weth.approve(address(adapter), type(uint256).max);
-        usdc.approve(address(adapter), type(uint256).max);
-        adapter.depositFor(maker, address(weth), 105e18);
-        adapter.depositFor(maker, address(usdc), 4500e6);
+        weth.approve(address(router), type(uint256).max);
+        usdc.approve(address(router), type(uint256).max);
+        IERC20(address(weth)).transfer(address(adapter), 105e18);
+        adapter.deposit(maker, address(weth), 105e18);
+        IERC20(address(usdc)).transfer(address(adapter), 4500e6);
+        adapter.deposit(maker, address(usdc), 4500e6);
         // approvals per SPEC B4.1: aWETH/USDC -> adapter, WETH -> Aqua registry
-        aToken.approve(address(adapter), type(uint256).max);
+        aToken.approve(address(router), type(uint256).max);
         weth.approve(address(aqua), type(uint256).max);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: address(weth), adapter: address(adapter), kind: AdapterKind.AaveV3, autoManaged: true });

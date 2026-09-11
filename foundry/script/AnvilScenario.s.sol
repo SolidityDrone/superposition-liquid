@@ -19,7 +19,6 @@ import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
 import { BaseChain } from "./BaseChain.s.sol";
@@ -158,12 +157,7 @@ contract AnvilScenario is Script, StdCheats {
                     YieldArgsBuilder.build(usdc, weth, aaveAdapter.exchangeRate(usdc), aaveAdapter.exchangeRate(weth)),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
-                    ),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })
@@ -265,12 +259,7 @@ contract AnvilScenario is Script, StdCheats {
                     YieldArgsBuilder.build(usdc, weth, adapter.exchangeRate(usdc), adapter.exchangeRate(weth)),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
-                    ),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })
@@ -363,7 +352,7 @@ contract AnvilScenario is Script, StdCheats {
                     YieldArgsBuilder.build(usdc, weth, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })
@@ -442,10 +431,7 @@ contract AnvilScenario is Script, StdCheats {
                     YieldArgsBuilder.build(usdc, weth, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(weth, usdc, ARB_ETH_FEED, ARB_USDC_FEED, 300, 3600, 86_400),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })
@@ -525,7 +511,7 @@ contract AnvilScenario is Script, StdCheats {
                     YieldArgsBuilder.build(usdc, weth, 1e18, rate0),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })

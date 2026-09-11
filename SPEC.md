@@ -23,7 +23,7 @@ plug in per-maker.
 | B3.2 | Opcode scrive su `ctx.swap` (memory) → permesso anche in static context (quote). View call a `adapter.exchangeRate()` permesso in staticcall | Opcode funziona identico in quote e swap |
 | B3.3 | Rate aToken: SOLO `IPool.getReserveNormalizedIncome(asset)` (ray→1e18). Chainlink non ha feed aWETH/ETH né aWETH/USD; comporre feeds aggiunge staleness senza beneficio. L'index Aave non è manipolabile al ribasso intra-tx | Spec Chainlink ridefinuita: guard opcode, non rate feed |
 | B3.4 | Chainlink Data Feeds usati come **price-sanity guard opcode**: revert se prezzo implicito swap devia >2% da ETH/USD o USDC/USD di Chainlink (staleness check incluso). Data Feeds, non Data Streams | Bounty Chainlink: MEV-protection reale |
-| B3.5 | Opcode order nel program: `YieldAdjustedRate` prima di `xycSwap`; `ChainlinkGuard` dopo pricing, prima dei transfer | Deterministico |
+| B3.5 | Opcode order nel program: `YieldAdjustedRate` prima di `xycSwap`; `ChainlinkGuard` dopo pricing, prima dei transfer [RIMOSSO v-late: out of scope, see B7.3 note] | Deterministico |
 | B4.1 | Approvals: `aWETH → adapter`, `USDC → adapter`, `WETH → Aqua registry` (Aqua.pull fa transferFrom da wallet maker, caller è Aqua). NO approval a router per depositFor: `depositFor` fa transferFrom **dal wallet del maker** (tokenIn arriva lì) | Tabella approvals sotto |
 | B4.2 | MakerConfig: permissionless read, write solo dal maker (msg.sender == maker) | Registry semplice |
 | B5.1 | Invariant `real ≥ virtual` sempre vero (ship=accounting; interesse aumenta solo real; fill atomico). Se maker ritira aTokens manualmente → fill revert naturale nel JIT withdraw. Nessun codice extra | Test invariant only |
@@ -34,10 +34,10 @@ plug in per-maker.
 | B6.3 | Testnet: 1inch Aqua NON è su Base Sepolia; su Sepolia il router vanity non è deployato (solo gen 2026-07-16). Self-deploy dello stack solo se strettamente necessario | Skip: fork-only demo |
 | B7.1 | **Aave su Base è v3.2+**: `aToken.balanceOf` è già index-accrued (deposit 105 WETH → 105 aWETH displayed, yield cresce come balance). Il rate generico `scaledTotalSupply × liquidityIndex × 1e18 / (totalSupply × 1e27)` = 1e18 su v3.2+, = liquidityIndex su legacy. Converto SEMPRE in unità displayed | Adapter AaveV3Adapter.exchangeRate |
 | B7.2 | Virtual balance shipped in **aToken count units** (non underlying): effective = count × rate = real underlying esatto. Ship-side dust buffer (~1e4 raw) sul lato in: il rounding displayed di Aave può lasciare il real 1-2 wei sotto l'importo pushed esatto | ship amounts; invariant real ≥ virtual |
-| B7.3 | Opcode dispatch bytes (v1.0.1): byte = indice statico − 1 (xycSwap=17, flatFeeIn=21, salt=20, gap 0-9/22-26). Custom: YieldAdjustedRateXD=**34**, ChainlinkGuardXD=**35** (appesi dopo onlyTxOrigin=33) | program bytecode |
+| B7.3 | Opcode dispatch bytes (v1.0.1): byte = indice statico − 1 (xycSwap=17, flatFeeIn=21, salt=20, gap 0-9/22-26). Custom: YieldAdjustedRateXD=**34**, ChainlinkGuardXD=**35** (appesi dopo onlyTxOrigin=33) [RIMOSSO v-late: l'opcode non fa parte del meta-layer; MakerCapitalGuardXD ora = **35**] | program bytecode |
 | B7.4 | Program order: `[yield][flatFeeIn][xyc][guard]` — flatFee esegue ricorsivamente il resto del programma e il guard deve vedere amountIn/amountOut già calcolati | program bytecode |
 | B7.5 | Hook **direction-agnostic**: la strategia 2D scambia in entrambe le direzioni → preTransferOut/postTransferIn matchano tokenOut/tokenIn contro ENTRAMBI gli underlyings della config (bug trovato dal demo fill #2) | SupercazzolaRouter hooks |
-| B7.6 | Guard staleness **per-feed**: USDC/USD su Base aggiorna su heartbeat ~12h (stablecoin); ETH/USD ~1m. Args: (token0, token1, feed0, feed1, maxDevBps, staleness0, staleness1) = 92 bytes | ChainlinkGuardOpcode |
+| B7.6 | [RIMOSSO v-late] Guard staleness **per-feed**: USDC/USD su Base aggiorna su heartbeat ~12h (stablecoin); ETH/USD ~1m. Args: (token0, token1, feed0, feed1, maxDevBps, staleness0, staleness1) = 92 bytes | ChainlinkGuardOpcode |
 | B7.7 | Approvals completi (update B4.1): `aWETH → adapter`, `aUSDC → adapter`, `WETH → Aqua`, `USDC → Aqua` (pull bidirezionale). Verificato dal demo: senza aUSDC→adapter il fill reverse reverta | maker setup |
 | B8.1 | **Adapter generico ERC-4626**: `ERC4626Adapter` copre qualsiasi vault 4626-compliant (testato contro mock in stile MetaMorpho/Morpho e Euler v2). Registry `underlying → vault` fissato al deploy; rate = `vault.convertToAssets(1e18)` (fonte: il vault stesso, niente oracle); `withdrawTo` = redeem diretto al recipient; `depositFor` = pull da maker + deposit con `forceApprove` verso il vault (il vault pulla dal caller) | src/adapters/ERC4626Adapter.sol |
 | B8.2 | Adapter borrow delta-neutral (collateral WETH + borrow WETH come inventario AMM, repay same-asset sui fill): **designato, deferred a v0.2** — il repay con USDC ricevuti richiede swap nel hook e la gestione HF è out of scope. Documentato nel README come future work | future work |
@@ -50,7 +50,6 @@ swap() (AquaSwapVMRouter fork = SupercazzolaRouter)
            [YieldAdjustedRateXD]      ← aWETH/aUSDC rate × balances (memory, quote-safe)
            [xycSwapXD]                ← pricing AMM
            [flatFeeAmountInXD]        ← fee al maker, dedotta dal taker
-           [ChainlinkGuardXD]         ← sanity vs Chainlink feed, revert se devia >2%
   _transferOut: preTransferOut hook (router)
       → adapter.withdrawTo(maker, WETH, amountOut, maker wallet)   ← JIT unwrap
     default: Aqua.pull(maker → taker)                               ← consegna reale
@@ -74,7 +73,6 @@ src/
                               autoDepositIn, autoWithdrawOut; write solo maker)
   opcodes/
     YieldAdjustedRateOpcode.sol  (balanceIn/balanceOut × exchangeRate, 1e18)
-    ChainlinkGuardOpcode.sol     (AggregatorV3Interface ETH/USD + USDC/USD, devia>2% → revert,
                               staleness >1h → revert)
   SupercazzolaRouter.sol     (Simulator, SwapVM, AquaOpcodes fork — opcodes appesi a fine table;
                               hooks: hasPreTransferOutHook + hasPostTransferInHook, target = router)
@@ -101,7 +99,7 @@ Dipendenze Foundry (submodule o remapping, pattern qilinswap):
 3. `WETH.approve(AQUA registry, max)` — per Aqua.pull dopo JIT unwrap
 4. `MakerConfig.setConfig({adapter, underlyingIn: USDC, underlyingOut: WETH, autoDepositIn: true, autoWithdrawOut: true})`
 5. `AQUA.ship(app=SupercazzolaRouter, strategy=encoded Order, tokens=[WETH, USDC], amounts=virtual balances)` — nessuna verifica balance, nessun token movimentato
-6. Program: `[YieldAdjustedRateXD][xycSwapXD][flatFeeAmountInXD][ChainlinkGuardXD]` + traits `useAquaInsteadOfSignature, hasPreTransferOutHook, hasPostTransferInHook, preTransferOutTarget=router, postTransferInTarget=router`
+6. Program: `[YieldAdjustedRateXD][xycSwapXD][flatFeeAmountInXD][MakerCapitalGuardXD]` + traits `useAquaInsteadOfSignature, hasPreTransferOutHook, hasPostTransferInHook, preTransferOutTarget=router, postTransferInTarget=router`
 
 ## Demo (bounty compliance)
 

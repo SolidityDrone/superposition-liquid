@@ -107,7 +107,6 @@ scale balances — they never replace pricing logic.
 | Opcode | What it does |
 |---|---|
 | `YieldAdjustedRateXD` | scales the swap registers by `rate(now)/rate(ship)` — quotes stay accurate in underlying terms while capital sits in yield tokens; adapters are resolved from the maker's registry, the ship-time rate is baked into the program |
-| `ChainlinkGuardXD` | MEV protection: reverts unless the implied swap price stays within a maker-defined bound of the Chainlink reference and both feeds are fresh |
 | `MakerCapitalGuardXD` | makes `quote()` a complete fill-oracle: reverts unless an ACTUAL withdrawal of the delivery amount would succeed right now (maker position AND protocol liquidity) |
 
 All three compose with any pricing opcode — `_xycSwapXD`, `_curvedSwapXD`,
@@ -216,7 +215,6 @@ Chain configuration files for public testnets are in `foundry/script/`:
 |---|---|---|---|
 | AaveV3Adapter | ✅ | ✅ (WETH only) | ❌ |
 | StargateAdapter | ✅ | ❌ | ❌ |
-| ChainlinkGuardOpcode | ✅ | ✅ | ✅ |
 | PendlePTAdapter | ❌ | ❌ | ❌ |
 | ERC4626Adapter (Morpho/Euler) | ❌ | ❌ | ❌ |
 | WstETHAdapter | ❌ | ❌ | ❌ |
@@ -244,9 +242,8 @@ foundry/
     interfaces/                     # ILendingAdapter, AggregatorV3Interface
     opcodes/
       YieldAdjustedRateOpcode.sol   # byte 34: registers × rate(now)/rate(ship)
-      ChainlinkGuardOpcode.sol      # byte 35: price deviation + staleness guard
       MakerCapitalGuardOpcode.sol   # byte 36: simulated-withdrawal fill oracle
-      SupercazzolaOpcodes.sol       # AquaOpcodes table + the three appended opcodes
+      SupercazzolaOpcodes.sol       # AquaOpcodes table + the two appended opcodes
   script/
     base/ arbitrum/ ethereum/       # per-chain live scenarios (one forge script per adapter)
     AnvilScenario.s.sol             # scenario base contract: approvals, deploy, setSides, ship, fills

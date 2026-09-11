@@ -14,7 +14,6 @@ import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
 /// @notice Proof on an ARBITRUM MAINNET fork: the maker's USDC liquidity is backed by a
@@ -94,10 +93,7 @@ contract ArbitrumForkPendleTest is Test {
                     YieldArgsBuilder.build(USDC, WETH, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(WETH, USDC, CHAINLINK_ETH_USD, CHAINLINK_USDC_USD, 200, 3600, 86_400),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(WETH)
                 )
             })

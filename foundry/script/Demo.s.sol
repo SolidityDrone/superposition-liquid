@@ -16,7 +16,6 @@ import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
 import { BaseChain } from "./BaseChain.s.sol";
 
 /// @notice Bounty demo (SPEC "Demo"): one-shot E2E on a Base fork.
@@ -136,12 +135,7 @@ contract Demo is Script, StdCheats {
                     uint8(104),
                     YieldArgsBuilder.build(usdc, weth, 1e18, 1e18),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6), // 0.3% fee to maker
-                    uint8(17), uint8(0), // XYCSwap._xycSwapXD
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 200, 3600, 86_400
-                    )
+                    uint8(17), uint8(0) // XYCSwap._xycSwapXD
                 )
             })
         );

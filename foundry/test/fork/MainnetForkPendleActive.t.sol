@@ -100,7 +100,7 @@ contract MainnetForkPendleActiveTest is Test {
                     YieldArgsBuilder.build(USDC, WSTETH, 1e18, rate0),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(WSTETH)
                 )
             })

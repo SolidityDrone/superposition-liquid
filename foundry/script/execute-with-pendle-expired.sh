@@ -18,16 +18,17 @@ case "$VERB" in
   *) die "VERB must be 0, 1 or 2 (got $VERB)" ;;
 esac
 
-echo -e "${BOLD}══ Terminal 2 - scenario '$SCEN' on $CHAIN (RPC ${RPC:-http://localhost:$PORT}) - verbosity $VERB ══${RESET}"
+echo -e "${BOLD}══ Terminal 2 - scenario '$SCEN' on $CHAIN (RPC ${RPC:-http://localhost:8545}) - verbosity $VERB ══${RESET}"
+"$SCRIPT_DIR/fund.sh" "$CHAIN" >/dev/null 2>&1 || true   # idempotent re-seed, fills consume balances
 
 if [ -n "$FILTER" ]; then
   SCENARIO="$SCEN" \
-    forge script script/AnvilScenario.s.sol --fork-url "${RPC:-http://localhost:$PORT}" --broadcast --skip-simulation $FORGE_V 2>&1 \
+    forge script script/AnvilScenario.s.sol --fork-url "${RPC:-http://localhost:8545}" --broadcast --skip-simulation $FORGE_V 2>&1 \
     | tee /tmp/scenario-$SCEN.log \
     | grep -E "$FILTER"
 else
   SCENARIO="$SCEN" \
-    forge script script/AnvilScenario.s.sol --fork-url "${RPC:-http://localhost:$PORT}" --broadcast --skip-simulation $FORGE_V 2>&1 \
+    forge script script/AnvilScenario.s.sol --fork-url "${RPC:-http://localhost:8545}" --broadcast --skip-simulation $FORGE_V 2>&1 \
     | tee /tmp/scenario-$SCEN.log
 fi
 

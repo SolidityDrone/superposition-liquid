@@ -61,7 +61,7 @@ Documented in [pendle-adapter.md](pendle-adapter.md). The delivery leg (stETH→
 Curve) is shipped; the reverse leg (WETH→stETH→wstETH for `depositFor` on the real
 wrapper) needs the pool's payable ETH entry or a 1inch-routed leg, with `min_dy` bounded
 by the Chainlink-derived price instead of the current 0 (same pattern as the
-ChainlinkGuardOpcode: bound from the reference price).
+MakerCapitalGuardOpcode-style bounds from the reference price).
 
 ## 6. Delta-neutral borrow profile (designed, SPEC B8.2)
 

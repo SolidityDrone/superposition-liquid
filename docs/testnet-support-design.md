@@ -84,7 +84,6 @@ for Ethereum, Base, and Arbitrum.
 | `ERC4626Adapter` (Euler) | ❌ Permissionless deploy | ❌ Permissionless deploy | ❌ Permissionless deploy |
 | `PendlePTAdapter` | ❌ Permissionless deploy | ❌ Permissionless deploy | ❌ Permissionless deploy |
 | `WstETHAdapter` | ❌ No testnet wstETH | ❌ No testnet wstETH | ❌ No testnet wstETH |
-| `ChainlinkGuardOpcode` | ✅ | ✅ | ✅ |
 
 **Summary per testnet:**
 

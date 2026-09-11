@@ -17,7 +17,6 @@ import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder } from "src/opcodes/ChainlinkGuardOpcode.sol";
 import { CapitalArgsBuilder } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
 
@@ -102,7 +101,7 @@ contract SupercazzolaRouterTest is Test {
             FeeArgsBuilder.buildFlatFee(3e6), // 0.3%
             uint8(17), // XYCSwap._xycSwapXD (v1.0.1 dispatch bytes)
             uint8(0),
-            uint8(36), uint8(20),
+            uint8(35), uint8(20),
             CapitalArgsBuilder.build(address(weth))
         );
 

@@ -15,7 +15,6 @@ import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
-import { GuardArgsBuilder, CHAINLINK_GUARD_XD } from "src/opcodes/ChainlinkGuardOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { BaseChain } from "script/BaseChain.s.sol";
 
@@ -118,12 +117,7 @@ contract BaseForkMixedAdaptersTest is Test {
                     ),
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0), // XYCSwap._xycSwapXD
-                    uint8(CHAINLINK_GUARD_XD),
-                    uint8(92),
-                    GuardArgsBuilder.build(
-                        weth, usdc, BaseChain.CHAINLINK_ETH_USD, BaseChain.CHAINLINK_USDC_USD, 300, 3600, 86_400
-                    ),
-                    uint8(36), uint8(20),
+                    uint8(35), uint8(20),
                     CapitalArgsBuilder.build(weth)
                 )
             })

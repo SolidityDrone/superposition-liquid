@@ -8,8 +8,8 @@ import { Context } from "@1inch/swap-vm/libs/VM.sol";
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
 import { MakerConfig } from "src/config/MakerConfig.sol";
 
-// Opcode byte index, appended after ChainlinkGuardXD (see SPEC.md).
-uint256 constant MAKER_CAPITAL_GUARD_XD = 36;
+// Opcode byte index, appended after YieldAdjustedRateXD (see SPEC.md).
+uint256 constant MAKER_CAPITAL_GUARD_XD = 35;
 
 library CapitalArgsBuilder {
     /// @dev Builds opcode args: underlyingOut (20 bytes). The adapter is

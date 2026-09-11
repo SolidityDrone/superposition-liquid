@@ -77,7 +77,7 @@ contract CapitalDrainE2ETest is Test {
             YieldArgsBuilder.build(address(usdc), address(weth), 1e18, 1e18),
             uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
             uint8(17), uint8(0), // XYCSwap
-            uint8(36), uint8(20),
+            uint8(35), uint8(20),
             CapitalArgsBuilder.build(address(weth))
         );
 

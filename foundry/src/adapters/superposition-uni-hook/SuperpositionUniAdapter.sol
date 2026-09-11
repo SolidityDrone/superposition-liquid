@@ -105,8 +105,36 @@ contract SuperpositionUniAdapter is ILendingAdapter {
         return amount < real ? amount : real;
     }
 
-    function deposit(address, address, uint256) external pure {
-        revert("not implemented");
+    /// @notice Routes `amount` of `underlying` (already transferred to this adapter by the
+    ///         router) into the token's one-sided bucket, minting ERC-1155 shares to `maker`.
+    function deposit(address maker, address underlying, uint256 amount) external {
+        Side memory s = _side(underlying);
+        IERC20(underlying).forceApprove(address(HOOK), amount);
+        if (s.isToken0) {
+            HOOK.deposit(
+                ISuperpositionHook.DepositParams({
+                    tickLower: s.lower,
+                    tickUpper: s.upper,
+                    amount0Desired: amount,
+                    amount1Desired: 0,
+                    amount0Min: 0,
+                    amount1Min: 0,
+                    recipient: maker
+                })
+            );
+        } else {
+            HOOK.deposit(
+                ISuperpositionHook.DepositParams({
+                    tickLower: s.lower,
+                    tickUpper: s.upper,
+                    amount0Desired: 0,
+                    amount1Desired: amount,
+                    amount0Min: 0,
+                    amount1Min: 0,
+                    recipient: maker
+                })
+            );
+        }
     }
 
     function withdraw(address, address, uint256, uint256, address) external pure {

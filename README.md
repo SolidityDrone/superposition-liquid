@@ -136,8 +136,7 @@ quote is a fillability oracle, a failing one returns the exact revert reason.
 
 - **No AMM curves.** It implements no pricing math — it wraps any SwapVM curve.
 - **No pricing logic.** Price discovery is entirely the strategy program's.
-- **No swap routing.** Discovery and routing stay with 1inch's resolver network;
-  Superposition ships an open off-chain resolver as a demo, not infrastructure.
+- **No swap routing.** Discovery and routing stay with 1inch's resolver network.
 - **No custody.** Capital lives in the maker's wallet or in the protocol the
   maker chose — the adapter only moves tokens inside the maker's own fill.
 

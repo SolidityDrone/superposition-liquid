@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import { Script } from "forge-std/Script.sol";
 import { console2 } from "forge-std/console2.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { SafeERC20 } from "@1inch/solidity-utils/contracts/libraries/SafeERC20.sol";
 
 import { IAqua } from "@1inch/aqua/src/interfaces/IAqua.sol";
@@ -16,6 +17,8 @@ import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
 import { StargateAdapter } from "src/adapters/stargate/StargateAdapter.sol";
 import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
+import { SuperpositionUniAdapter } from "src/adapters/superposition-uni-hook/SuperpositionUniAdapter.sol";
+import { ISuperpositionHook } from "src/adapters/superposition-uni-hook/ISuperpositionHook.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
@@ -32,6 +35,7 @@ address constant ARB_ETH_FEED = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
 address constant ARB_USDC_FEED = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 address constant ETH_WSTETH = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
 address constant ETH_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+address constant ETH_USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 address constant ETH_MARKET = 0x34280882267ffa6383B363E278B027Be083bBe3b; // PT-wstETH (ACTIVE)
 address constant ETH_ORACLE = 0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2;
 address constant ETH_ETH_FEED = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
@@ -81,6 +85,7 @@ contract AnvilScenario is Script, StdCheats {
         else if (_eq(_scenario, "stargate")) _stargate(artifact);
         else if (_eq(_scenario, "pendle-expired")) _pendleExpired();
         else if (_eq(_scenario, "pendle-active")) _pendleActive();
+        else if (_eq(_scenario, "superposition-uni")) _superpositionUni(artifact);
         else revert(string.concat("unknown scenario: ", _scenario));
 
         _pass();
@@ -104,23 +109,29 @@ contract AnvilScenario is Script, StdCheats {
 
         aaveAdapter = AaveV3Adapter(vm.parseAddress(vm.parseJsonString(artifact, ".AaveV3")));
 
-        vm.startBroadcast(makerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
-        IERC20(usdc).approve(address(router), type(uint256).max);
-        IERC20(aWeth).approve(address(router), type(uint256).max); // the router pulls aWETH for the JIT delivery
-        IERC20(aUsdc).approve(address(router), type(uint256).max); // the router pulls aUSDC (reverse fills)
-        IERC20(weth).approve(address(aqua), type(uint256).max);
-        IERC20(usdc).approve(address(aqua), type(uint256).max);
-        vm.stopBroadcast();
+        if (IERC20(weth).allowance(maker, address(router)) != type(uint256).max) {
+            vm.startBroadcast(makerKey);
+            IERC20(weth).approve(address(router), type(uint256).max);
+            IERC20(usdc).approve(address(router), type(uint256).max);
+            IERC20(aWeth).approve(address(router), type(uint256).max); // the router pulls aWETH for the JIT delivery
+            IERC20(aUsdc).approve(address(router), type(uint256).max); // the router pulls aUSDC (reverse fills)
+            IERC20(weth).approve(address(aqua), type(uint256).max);
+            IERC20(usdc).approve(address(aqua), type(uint256).max);
+            vm.stopBroadcast();
+        }
 
-        // deploy 100% of capital into Aave (transfer + deposit: no allowances)
+        // deploy 100% of capital into Aave (skipped when deploy.sh pre-armed it)
         uint256 wethReal = 105e18;
         uint256 usdcReal = 262_500e6;
+        if (IERC20(weth).balanceOf(maker) >= wethReal && IERC20(usdc).balanceOf(maker) >= usdcReal) {
+            vm.startBroadcast(makerKey);
+            IERC20(weth).transfer(address(aaveAdapter), wethReal);
+            aaveAdapter.deposit(maker, weth, wethReal);
+            IERC20(usdc).transfer(address(aaveAdapter), usdcReal);
+            aaveAdapter.deposit(maker, usdc, usdcReal);
+            vm.stopBroadcast();
+        }
         vm.startBroadcast(makerKey);
-        IERC20(weth).transfer(address(aaveAdapter), wethReal);
-        aaveAdapter.deposit(maker, weth, wethReal);
-        IERC20(usdc).transfer(address(aaveAdapter), usdcReal);
-        aaveAdapter.deposit(maker, usdc, usdcReal);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: weth, adapter: address(aaveAdapter), kind: AdapterKind.AaveV3, autoManaged: true });
         sides[1] = SideConfig({ underlying: usdc, adapter: address(aaveAdapter), kind: AdapterKind.AaveV3, autoManaged: true });
@@ -175,7 +186,9 @@ contract AnvilScenario is Script, StdCheats {
 
         bytes memory tt = _takerTraits();
         vm.startBroadcast(takerKey);
-        IERC20(usdc).approve(address(router), type(uint256).max);
+        if (IERC20(usdc).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(usdc).approve(address(router), type(uint256).max);
+        }
         (, uint256 quotedOut,) = router.quote(order, usdc, weth, 1000e6, tt);
         (, uint256 amountOut,) = router.swap(order, usdc, weth, 1000e6, tt);
         vm.stopBroadcast();
@@ -190,7 +203,9 @@ contract AnvilScenario is Script, StdCheats {
         // reverse fill: taker sells the WETH back, maker re-deploys the USDC
         uint256 wethFromTaker = IERC20(weth).balanceOf(taker);
         vm.startBroadcast(takerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
+        if (IERC20(weth).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(weth).approve(address(router), type(uint256).max);
+        }
         router.swap(order, weth, usdc, amountOut, tt);
         vm.stopBroadcast();
         _step("FILL 2 (reverse) - taker sold the WETH back, bought USDC");
@@ -210,20 +225,26 @@ contract AnvilScenario is Script, StdCheats {
 
         ERC4626Adapter adapter = ERC4626Adapter(vm.parseAddress(vm.parseJsonString(artifact, ".ERC4626")));
 
-        vm.startBroadcast(makerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
-        IERC20(usdc).approve(address(router), type(uint256).max);
-        IERC20(BaseChain.MORPHO_WETH_VAULT).approve(address(router), type(uint256).max); // JIT delivery pulls
-        IERC20(BaseChain.MORPHO_USDC_VAULT).approve(address(router), type(uint256).max);
-        IERC20(weth).approve(address(aqua), type(uint256).max);
-        IERC20(usdc).approve(address(aqua), type(uint256).max);
-        vm.stopBroadcast();
+        if (IERC20(weth).allowance(maker, address(router)) != type(uint256).max) {
+            vm.startBroadcast(makerKey);
+            IERC20(weth).approve(address(router), type(uint256).max);
+            IERC20(usdc).approve(address(router), type(uint256).max);
+            IERC20(BaseChain.MORPHO_WETH_VAULT).approve(address(router), type(uint256).max); // JIT delivery pulls
+            IERC20(BaseChain.MORPHO_USDC_VAULT).approve(address(router), type(uint256).max);
+            IERC20(weth).approve(address(aqua), type(uint256).max);
+            IERC20(usdc).approve(address(aqua), type(uint256).max);
+            vm.stopBroadcast();
+        }
 
+        if (IERC20(weth).balanceOf(maker) >= 105e18 && IERC20(usdc).balanceOf(maker) >= 262_500e6) {
+            vm.startBroadcast(makerKey);
+            IERC20(weth).transfer(address(adapter), 105e18);
+            adapter.deposit(maker, weth, 105e18);
+            IERC20(usdc).transfer(address(adapter), 262_500e6);
+            adapter.deposit(maker, usdc, 262_500e6);
+            vm.stopBroadcast();
+        }
         vm.startBroadcast(makerKey);
-        IERC20(weth).transfer(address(adapter), 105e18);
-        adapter.deposit(maker, weth, 105e18);
-        IERC20(usdc).transfer(address(adapter), 262_500e6);
-        adapter.deposit(maker, usdc, 262_500e6);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: weth, adapter: address(adapter), kind: AdapterKind.ERC4626, autoManaged: true });
         sides[1] = SideConfig({ underlying: usdc, adapter: address(adapter), kind: AdapterKind.ERC4626, autoManaged: true });
@@ -277,7 +298,9 @@ contract AnvilScenario is Script, StdCheats {
 
         bytes memory tt = _takerTraits();
         vm.startBroadcast(takerKey);
-        IERC20(usdc).approve(address(router), type(uint256).max);
+        if (IERC20(usdc).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(usdc).approve(address(router), type(uint256).max);
+        }
         (, uint256 amountOut,) = router.swap(order, usdc, weth, 1000e6, tt);
         vm.stopBroadcast();
         _step("FILL 1 - taker sold 1000 USDC, received WETH (Morpho JIT)");
@@ -286,7 +309,9 @@ contract AnvilScenario is Script, StdCheats {
         _assert(IERC20(weth).balanceOf(maker) == 0, "maker wallet has no idle WETH");
 
         vm.startBroadcast(takerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
+        if (IERC20(weth).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(weth).approve(address(router), type(uint256).max);
+        }
         router.swap(order, weth, usdc, amountOut, tt);
         vm.stopBroadcast();
         _step("FILL 2 (reverse) - taker sold the WETH back, bought USDC");
@@ -307,16 +332,22 @@ contract AnvilScenario is Script, StdCheats {
         stargateAdapter = StargateAdapter(vm.parseAddress(vm.parseJsonString(artifact, ".Stargate")));
         IERC20 lp = IERC20(stargateAdapter.LP());
 
-        vm.startBroadcast(makerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
-        IERC20(usdc).approve(address(router), type(uint256).max);
-        IERC20(weth).approve(address(aqua), type(uint256).max);
-        IERC20(usdc).approve(address(aqua), type(uint256).max);
-        vm.stopBroadcast();
+        if (IERC20(weth).allowance(maker, address(router)) != type(uint256).max) {
+            vm.startBroadcast(makerKey);
+            IERC20(weth).approve(address(router), type(uint256).max);
+            IERC20(usdc).approve(address(router), type(uint256).max);
+            IERC20(weth).approve(address(aqua), type(uint256).max);
+            IERC20(usdc).approve(address(aqua), type(uint256).max);
+            vm.stopBroadcast();
+        }
 
+        if (IERC20(usdc).balanceOf(maker) >= 5_000e6) {
+            vm.startBroadcast(makerKey);
+            IERC20(usdc).transfer(address(stargateAdapter), 5_000e6);
+            stargateAdapter.deposit(maker, usdc, 5_000e6);
+            vm.stopBroadcast();
+        }
         vm.startBroadcast(makerKey);
-        IERC20(usdc).transfer(address(stargateAdapter), 5_000e6);
-        stargateAdapter.deposit(maker, usdc, 5_000e6);
         SideConfig[] memory sides = new SideConfig[](2);
         sides[0] = SideConfig({ underlying: weth, adapter: address(stargateAdapter), kind: AdapterKind.Stargate, autoManaged: true });
         sides[1] = SideConfig({ underlying: usdc, adapter: address(stargateAdapter), kind: AdapterKind.Stargate, autoManaged: true });
@@ -353,7 +384,7 @@ contract AnvilScenario is Script, StdCheats {
                     uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
                     uint8(17), uint8(0),
                     uint8(35), uint8(20),
-                    CapitalArgsBuilder.build(weth)
+                    CapitalArgsBuilder.build(usdc)
                 )
             })
         );
@@ -370,7 +401,9 @@ contract AnvilScenario is Script, StdCheats {
 
         bytes memory tt = _takerTraits();
         vm.startBroadcast(takerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
+        if (IERC20(weth).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(weth).approve(address(router), type(uint256).max);
+        }
         (, uint256 amountOut,) = router.swap(order, weth, usdc, 0.05e18, tt);
         vm.stopBroadcast();
         _step("FILL - taker sold 0.05 WETH, received USDC (Stargate JIT: unstake -> redeem)");
@@ -449,7 +482,9 @@ contract AnvilScenario is Script, StdCheats {
 
         bytes memory tt = _takerTraits();
         vm.startBroadcast(takerKey);
-        IERC20(weth).approve(address(router), type(uint256).max);
+        if (IERC20(weth).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(weth).approve(address(router), type(uint256).max);
+        }
         (, uint256 amountOut,) = router.swap(order, weth, usdc, 0.05e18, tt);
         vm.stopBroadcast();
         _step("FILL - taker sold 0.05 WETH, received USDC (PT -> YT.redeemPY -> SY -> USDC)");
@@ -530,7 +565,9 @@ contract AnvilScenario is Script, StdCheats {
         bytes memory tt = _takerTraits();
         deal(usdc, taker, 1000e6);
         vm.startBroadcast(takerKey);
-        IERC20(usdc).approve(address(router), type(uint256).max);
+        if (IERC20(usdc).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(usdc).approve(address(router), type(uint256).max);
+        }
         (, uint256 amountOut,) = router.swap(order, usdc, weth, 1000e6, tt);
         vm.stopBroadcast();
         _step("FILL - taker sold 1000 USDC, received wstETH (PT -> market AMM -> SY -> wstETH)");
@@ -540,6 +577,96 @@ contract AnvilScenario is Script, StdCheats {
     }
 
     // ===================== shared helpers =====================
+    // ===================== SuperpositionUni (Ethereum) =====================
+    function _superpositionUni(string memory artifact) internal {
+        address supUsdc = ETH_USDC;
+        address supUsdt = ETH_USDT;
+        address hook = vm.parseAddress(vm.parseJsonString(artifact, ".SuperpositionHook"));
+        SuperpositionUniAdapter adapter =
+            SuperpositionUniAdapter(vm.parseAddress(vm.parseJsonString(artifact, ".SuperpositionUniHook")));
+
+        if (IERC20(supUsdc).allowance(maker, address(router)) != type(uint256).max) {
+            vm.startBroadcast(makerKey);
+            IERC20(supUsdc).forceApprove(address(router), type(uint256).max);
+            IERC20(supUsdt).forceApprove(address(router), type(uint256).max);
+            IERC20(supUsdc).forceApprove(address(aqua), type(uint256).max);
+            IERC20(supUsdt).forceApprove(address(aqua), type(uint256).max);
+            IERC1155(ISuperpositionHook(hook).shareToken()).setApprovalForAll(address(adapter), true);
+            vm.stopBroadcast();
+        }
+
+        if (IERC20(supUsdc).balanceOf(maker) >= 5_000e6) {
+            vm.startBroadcast(makerKey);
+            IERC20(supUsdc).safeTransfer(address(adapter), 5_000e6);
+            adapter.deposit(maker, supUsdc, 5_000e6);
+            vm.stopBroadcast();
+        }
+        if (IERC20(supUsdt).balanceOf(maker) >= 5_000e6) {
+            vm.startBroadcast(makerKey);
+            IERC20(supUsdt).safeTransfer(address(adapter), 5_000e6);
+            adapter.deposit(maker, supUsdt, 5_000e6);
+            vm.stopBroadcast();
+        }
+
+        vm.startBroadcast(makerKey);
+        SideConfig[] memory sides = new SideConfig[](2);
+        sides[0] = SideConfig({ underlying: supUsdc, adapter: address(adapter), kind: AdapterKind.SuperpositionUniHook, autoManaged: true });
+        sides[1] = SideConfig({ underlying: supUsdt, adapter: address(adapter), kind: AdapterKind.SuperpositionUniHook, autoManaged: true });
+        makerConfig.setSides(sides);
+        vm.stopBroadcast();
+        _banner("capital deployed", "USDC + USDT one-sided buckets on the Superposition hook");
+        _kv("maker USDC bucket shares", ISuperpositionHook(hook).sharesOf(maker, 1, 101));
+        _kv("maker USDT bucket shares", ISuperpositionHook(hook).sharesOf(maker, -101, -1));
+
+        order = MakerTraitsLib.build(
+            MakerTraitsLib.Args({
+                maker: maker,
+                receiver: address(0),
+                shouldUnwrapWeth: false,
+                useAquaInsteadOfSignature: true,
+                allowZeroAmountIn: false,
+                hasPreTransferInHook: false,
+                hasPostTransferInHook: true,
+                hasPreTransferOutHook: true,
+                hasPostTransferOutHook: false,
+                preTransferInTarget: address(0),
+                preTransferInData: "",
+                postTransferInTarget: address(router),
+                postTransferInData: "",
+                preTransferOutTarget: address(router),
+                preTransferOutData: "",
+                postTransferOutTarget: address(0),
+                postTransferOutData: "",
+                program: abi.encodePacked(
+                    uint8(YIELD_ADJUSTED_RATE_XD),
+                    uint8(104),
+                    YieldArgsBuilder.build(supUsdt, supUsdc, 1e18, 1e18),
+                    uint8(21), uint8(4), FeeArgsBuilder.buildFlatFee(3e6),
+                    uint8(17), uint8(0),
+                    uint8(35), uint8(20),
+                    CapitalArgsBuilder.build(supUsdc)
+                )
+            })
+        );
+        vm.startBroadcast(makerKey);
+        address[] memory shipTokens = _arr2(supUsdt, supUsdc);
+        uint256[] memory shipAmounts = new uint256[](2);
+        shipAmounts[0] = 5_000e6;
+        shipAmounts[1] = 5_000e6;
+        aqua.ship(address(router), abi.encode(order), shipTokens, shipAmounts);
+        vm.stopBroadcast();
+        _step("strategy shipped on Aqua");
+
+        vm.startBroadcast(takerKey);
+        if (IERC20(supUsdt).allowance(taker, address(router)) != type(uint256).max) {
+            IERC20(supUsdt).forceApprove(address(router), type(uint256).max);
+        }
+        (, uint256 amountOut,) = router.swap(order, supUsdt, supUsdc, 1_000e6, _takerTraits());
+        vm.stopBroadcast();
+        _kv("amountOut (USDC)", amountOut);
+        _assert(amountOut > 800e6, "USDC out");
+    }
+
     function _takerTraits() internal pure returns (bytes memory) {
         return TakerTraitsLib.build(
             TakerTraitsLib.Args({
@@ -592,6 +719,7 @@ contract AnvilScenario is Script, StdCheats {
     function _chainOf(string memory scenario) internal pure returns (string memory) {
         if (_eq(scenario, "pendle-expired")) return "arbitrum";
         if (_eq(scenario, "pendle-active")) return "ethereum";
+        if (_eq(scenario, "superposition-uni")) return "ethereum";
         return "base";
     }
 

@@ -113,6 +113,20 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
     address internal constant AQUA = 0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a;
     address internal constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
+    function test_fork_yieldGrowsClaim() public {
+        address maker = address(0xA11CE);
+        address router = address(0xBEEF);
+        SuperpositionUniAdapter adapter =
+            new SuperpositionUniAdapter(address(hook), router, USDC, 1, 101, USDT, -101, -1);
+        _makerWithUsdcDeposit(maker, address(adapter));
+
+        uint256 before = adapter.maxWithdrawable(maker, USDC);
+        vm.warp(block.timestamp + 365 days);
+        hook.syncYield();
+        uint256 afterWarp = adapter.maxWithdrawable(maker, USDC);
+        assertGt(afterWarp, before, "Aave yield grows the claim");
+    }
+
     function test_fork_supercazzolaJitFill() public {
         address maker = address(0xA11CE);
         address taker = address(0xB0B);

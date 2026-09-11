@@ -137,8 +137,30 @@ contract SuperpositionUniAdapter is ILendingAdapter {
         }
     }
 
-    function withdraw(address, address, uint256, uint256, address) external pure {
-        revert("not implemented");
+    /// @notice Burns `maker`'s bucket shares (this adapter is an ERC-1155 operator) and
+    ///         delivers the underlying to `recipient`. Router-only.
+    function withdraw(
+        address maker,
+        address underlying,
+        uint256 amountOut,
+        uint256,
+        address recipient
+    ) external {
+        if (msg.sender != ROUTER) revert NotRouter();
+        Side memory s = _side(underlying);
+        (uint256 shares, uint256 c0, uint256 c1) = _bucket(s);
+        require(shares > 0, "no bucket");
+        uint256 claim = s.isToken0 ? c0 : c1;
+        uint256 shareAmount = (amountOut * shares + claim - 1) / claim; // round up
+        HOOK.withdraw(
+            ISuperpositionHook.WithdrawParams({
+                tickLower: s.lower,
+                tickUpper: s.upper,
+                owner: maker,
+                shareAmount: shareAmount,
+                recipient: recipient
+            })
+        );
     }
 
     function _side(address underlying) internal view returns (Side memory s) {

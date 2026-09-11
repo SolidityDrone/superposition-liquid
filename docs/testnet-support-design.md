@@ -23,10 +23,8 @@ target testnet.
 |---|---|---|
 | Ethereum Sepolia | 11155111 | `https://ethereum-sepolia.publicnode.com` |
 | Base Sepolia | 84532 | `https://sepolia.base.org` |
-| Arbitrum Sepolia | 421614 | `https://sepolia-rollup.arbitrum.io/rpc` |
 
-All three are L1/L2 Sepolia testnets — the standard public test infrastructure
-for Ethereum, Base, and Arbitrum.
+Both are the standard public test infrastructure for Ethereum and Base.
 
 ## Address tables
 
@@ -61,37 +59,22 @@ for Ethereum, Base, and Arbitrum.
 | Chainlink USDC/USD | `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165` | |
 | Stargate V2 | **NOT available on Base Sepolia** | |
 
-### Arbitrum Sepolia (421614)
-
-| Contract | Address | Notes |
-|---|---|---|
-| Aqua registry | `0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a` | Same vanity address as mainnet |
-| SwapVM router | `0x111111338c5091E8440b67B168bAe16a668AC0De` | Same vanity address as mainnet |
-| WETH | `0x980B62Da83Ff3D742ac43b2A95c4cf3345De64a1` | Canonical testnet WETH |
-| USDC | `0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d` | Circle USDC |
-| Chainlink ETH/USD | `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165` | |
-| Chainlink USDC/USD | `0x0153002d20B96532C639313c2d54c3dA09109309` | |
-| Aave v3 | **NOT available on Arbitrum Sepolia** | |
-| Stargate V2 | **NOT available on Arbitrum Sepolia** | |
-
 ## Adapter availability matrix
 
-| Adapter | Ethereum Sepolia | Base Sepolia | Arbitrum Sepolia |
-|---|---|---|---|
-| `AaveV3Adapter` | ✅ (Pool + aTokens) | ✅ (Pool + aTokens) | ❌ No Aave deployment |
-| `StargateAdapter` | ✅ (Pool + Staking) | ❌ Not deployed | ❌ Not deployed |
-| `ERC4626Adapter` (Morpho) | ❌ Permissionless deploy | ❌ Permissionless deploy | ❌ Permissionless deploy |
-| `ERC4626Adapter` (Euler) | ❌ Permissionless deploy | ❌ Permissionless deploy | ❌ Permissionless deploy |
-| `PendlePTAdapter` | ❌ Permissionless deploy | ❌ Permissionless deploy | ❌ Permissionless deploy |
-| `WstETHAdapter` | ❌ No testnet wstETH | ❌ No testnet wstETH | ❌ No testnet wstETH |
+| Adapter | Ethereum Sepolia | Base Sepolia |
+|---|---|---|
+| `AaveV3Adapter` | ✅ (Pool + aTokens) | ✅ (Pool + aTokens) |
+| `StargateAdapter` | ✅ (Pool + Staking) | ❌ Not deployed |
+| `ERC4626Adapter` (Morpho) | ❌ Permissionless deploy | ❌ Permissionless deploy |
+| `ERC4626Adapter` (Euler) | ❌ Permissionless deploy | ❌ Permissionless deploy |
+| `PendlePTAdapter` | ❌ Permissionless deploy | ❌ Permissionless deploy |
+| `WstETHAdapter` | ❌ No testnet wstETH | ❌ No testnet wstETH |
 
 **Summary per testnet:**
 
 - **Ethereum Sepolia:** Full adapter support (AaveV3 + Stargate) + Chainlink guard.
   Best testnet for end-to-end validation.
 - **Base Sepolia:** AaveV3 adapter only + Chainlink guard. Stargate not deployed.
-- **Arbitrum Sepolia:** Chainlink guard only — no lending or bridge adapters available.
-  Useful for testing the guard opcode and basic AMM mechanics.
 
 ## Design decisions
 
@@ -107,7 +90,6 @@ script/
   BaseChain.s.sol              # mainnet (existing)
   SepoliaChain.s.sol           # Ethereum Sepolia (new)
   BaseSepoliaChain.s.sol       # Base Sepolia (new)
-  ArbitrumSepoliaChain.s.sol   # Arbitrum Sepolia (new)
 ```
 
 ### D2. Mark unavailable addresses with explicit comments
@@ -147,7 +129,6 @@ match the convention:
 test/fork/
   SepoliaForkAave.t.sol            # AaveV3 + Stargate on Ethereum Sepolia
   BaseSepoliaForkAave.t.sol        # AaveV3 on Base Sepolia
-  ArbitrumSepoliaForkGuard.t.sol   # Chainlink guard on Arbitrum Sepolia
 ```
 
 ### D5. RPC URL resolution via env var with fallback
@@ -169,7 +150,6 @@ development zero-config.
 |---|---|
 | `foundry/script/SepoliaChain.s.sol` | ✅ Created — Ethereum Sepolia library with all addresses |
 | `foundry/script/BaseSepoliaChain.s.sol` | ✅ Created — Base Sepolia library; aWETH resolved, USDC not listed |
-| `foundry/script/ArbitrumSepoliaChain.s.sol` | ✅ Created — Arbitrum Sepolia library; Aave/Stargate commented out |
 
 ### Phase 2: Resolve missing addresses ✅
 
@@ -185,7 +165,6 @@ development zero-config.
 | `test/fork/SepoliaForkAave.t.sol` | Full AaveV3 JIT cycle on Ethereum Sepolia: ship → quote → swap, real aTokens, real Chainlink guard |
 | `test/fork/SepoliaForkStargate.t.sol` | Stargate V2 deposit + stake + JIT unstake on Ethereum Sepolia |
 | `test/fork/BaseSepoliaForkAave.t.sol` | AaveV3 JIT cycle on Base Sepolia |
-| `test/fork/ArbitrumSepoliaForkGuard.t.sol` | Chainlink guard opcode only on Arbitrum Sepolia: quote reverts outside price band |
 
 Each test mirrors the structure of the existing mainnet fork tests (e.g.
 `BaseFork.t.sol`, `BaseForkStargate.t.sol`) — same `setUp()` pattern, same
@@ -226,7 +205,6 @@ parameters, missing tokens).
 |---|---|
 | AaveV3 JIT cycle (Sepolia) | AaveV3Adapter works against the Sepolia Aave deployment (different pool address, same interface) |
 | Stargate JIT cycle (Sepolia) | StargateAdapter works against Sepolia Stargate (different pool, different credit limits) |
-| Chainlink guard (Arbitrum Sepolia) | Guard opcode reads real Chainlink feeds on testnet, staleness/deviation checks work |
 | Missing adapter reverts | Attempting to use ERC4626/Pendle/WstETH on testnets without deployments produces clear errors |
 
 ### CI integration
@@ -237,7 +215,6 @@ runs testnet fork tests with the appropriate RPC URLs:
 ```bash
 RPC_URL_SEPOLIA=https://ethereum-sepolia.publicnode.com \
 RPC_URL_BASE_SEPOLIA=https://sepolia.base.org \
-RPC_URL_ARB_SEPOLIA=https://sepolia-rollup.arbitrum.io/rpc \
 forge test --match-path "test/fork/*Sepolia*" -vvv
 ```
 
@@ -264,10 +241,8 @@ forge test --match-path "test/fork/*Sepolia*" -vvv
 |---|---|---|
 | `foundry/script/SepoliaChain.s.sol` | Create | Ethereum Sepolia chain constants |
 | `foundry/script/BaseSepoliaChain.s.sol` | Create | Base Sepolia chain constants |
-| `foundry/script/ArbitrumSepoliaChain.s.sol` | Create | Arbitrum Sepolia chain constants |
 | `foundry/test/fork/SepoliaForkAave.t.sol` | Create | AaveV3 fork test on Ethereum Sepolia |
 | `foundry/test/fork/SepoliaForkStargate.t.sol` | Create | Stargate fork test on Ethereum Sepolia |
 | `foundry/test/fork/BaseSepoliaForkAave.t.sol` | Create | AaveV3 fork test on Base Sepolia |
-| `foundry/test/fork/ArbitrumSepoliaForkGuard.t.sol` | Create | Chainlink guard fork test on Arbitrum Sepolia |
 | `README.md` | Modify | Add testnet documentation section |
 | `docs/ADDRESSES.md` | Modify | Add testnet address tables |

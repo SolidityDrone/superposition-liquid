@@ -4,3 +4,6 @@ forge-std/=lib/forge-std/src/
 @1inch/aqua/=lib/aqua/
 @aave/core/=lib/aave-v3-core/contracts/
 @1inch/swap-vm/=lib/swap-vm/src/
+@uniswap/v4-core/=lib/v4-core/
+@uniswap/v4-periphery/=lib/v4-periphery/
+superposition-hook/=lib/superposition-hook/superposition-uni-v4-hook/src/

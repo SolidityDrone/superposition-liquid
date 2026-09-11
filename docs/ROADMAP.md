@@ -15,7 +15,7 @@ indexed by them, and Aqua itself ships with no public indexer (confirmed by ETHG
 Lisbon 2026 projects, who all built their own).
 
 **Design** (a day of TypeScript):
-1. Listen for Aqua `Shipped` events filtered by `app = SupercazzolaRouter` → extract
+1. Listen for Aqua `Shipped` events filtered by `app = SuperPositionVMRouter` → extract
    `(maker, strategyHash, token0/token1, virtual balances)`.
 2. Read `MakerConfig` per maker → adapter → live exchange rate.
 3. Expose quotes by calling the router's `quote()` (the complete fill-oracle: AMM pricing

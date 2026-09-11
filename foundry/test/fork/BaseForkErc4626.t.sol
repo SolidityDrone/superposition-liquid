@@ -13,7 +13,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { BaseChain } from "script/BaseChain.s.sol";
@@ -23,7 +23,7 @@ import { BaseChain } from "script/BaseChain.s.sol";
 contract BaseForkErc4626Test is Test {
     ERC4626Adapter internal adapter;
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
     IAqua internal aqua;
 
     address internal weth = BaseChain.WETH;
@@ -50,8 +50,8 @@ contract BaseForkErc4626Test is Test {
         vaults[1] = BaseChain.MORPHO_USDC_VAULT;
         adapter = new ERC4626Adapter(underlyings, vaults);
         makerConfig = new MakerConfig();
-        router = new SupercazzolaRouter(
-            BaseChain.AQUA, weth, makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig)
+        router = new SuperPositionVMRouter(
+            BaseChain.AQUA, weth, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)
         );
 
         // sanity: vaults are the real ones we verified

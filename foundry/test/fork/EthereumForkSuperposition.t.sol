@@ -13,7 +13,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 import { SuperpositionHook } from "superposition-hook/SuperpositionHook.sol";
 import { SuperpositionUniAdapter } from "src/adapters/superposition-uni-hook/SuperpositionUniAdapter.sol";
 import { MakerConfig, AdapterKind, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
@@ -127,13 +127,13 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         assertGt(afterWarp, before, "Aave yield grows the claim");
     }
 
-    function test_fork_supercazzolaJitFill() public {
+    function test_fork_superpositionJitFill() public {
         address maker = address(0xA11CE);
         address taker = address(0xB0B);
 
         MakerConfig mc = new MakerConfig();
-        SupercazzolaRouter router =
-            new SupercazzolaRouter(AQUA, WETH, address(this), "SupercazzolaRouter", "1", address(mc));
+        SuperPositionVMRouter router =
+            new SuperPositionVMRouter(AQUA, WETH, address(this), "SuperPositionVMRouter", "1", address(mc));
         SuperpositionUniAdapter adapter =
             new SuperpositionUniAdapter(address(hook), address(router), USDC, 1, 101, USDT, -101, -1);
 

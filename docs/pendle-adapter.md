@@ -9,7 +9,7 @@ caught several of these).
 ## What it does
 
 The maker's capital sits in a Pendle **PT (Principal Token)** — a zero-coupon claim on the
-market's accounting asset. The SupercazzolaRouter hooks redeem/sell the PT **just-in-time**
+market's accounting asset. The SuperPositionVMRouter hooks redeem/sell the PT **just-in-time**
 to deliver the underlying to the taker, atomically inside the swap. The maker earns swap
 fees on top of the **fixed yield** locked into the PT (no variable-rate exposure like Aave).
 

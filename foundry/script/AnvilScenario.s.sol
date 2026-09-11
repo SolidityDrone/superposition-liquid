@@ -20,7 +20,7 @@ import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 import { SuperpositionUniAdapter } from "src/adapters/superposition-uni-hook/SuperpositionUniAdapter.sol";
 import { ISuperpositionHook } from "src/adapters/superposition-uni-hook/ISuperpositionHook.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
@@ -45,7 +45,7 @@ address constant ETH_USDC_FEED = 0x8ffFf3Ffdd1E2EC7e90A4Cc48ea22fF79C0eEED9;
 /// @notice Live scenario runner for the anvil-scripts suite: executes a FULL
 ///         maker lifecycle (approvals -> capital deployment -> setSides ->
 ///         ship on Aqua -> fills) against the DEPLOYED stack
-///         (deployments/supercazzola-<chain>.json from Deploy.s.sol), with
+///         (deployments/superposition-<chain>.json from Deploy.s.sol), with
 ///         step-by-step logging and final assertions.
 ///
 /// Usage (from anvil-scripts/execute-with-<adapter>.sh):
@@ -64,16 +64,16 @@ contract AnvilScenario is Script, StdCheats {
     address internal taker = vm.addr(takerKey);
 
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
     IAqua internal aqua;
 
     function run() external {
         if (bytes(_scenario).length == 0) _scenario = vm.envOr("SCENARIO", string("aave"));
         string memory chain = _chainOf(_scenario);
-        string memory path = string.concat("deployments/supercazzola-", chain, ".json");
+        string memory path = string.concat("deployments/superposition-", chain, ".json");
         string memory artifact = vm.readFile(path);
         address deployedRouter = vm.parseAddress(vm.parseJsonString(artifact, ".router"));
-        router = SupercazzolaRouter(payable(deployedRouter));
+        router = SuperPositionVMRouter(payable(deployedRouter));
         makerConfig = MakerConfig(router.MAKER_CONFIG());
         aqua = IAqua(router.AQUA());
 
@@ -724,7 +724,7 @@ contract AnvilScenario is Script, StdCheats {
     }
 
     function artifactPath(string memory chain) internal pure returns (string memory) {
-        return string.concat("deployments/supercazzola-", chain, ".json");
+        return string.concat("deployments/superposition-", chain, ".json");
     }
 
     function _eq(string memory a, string memory b) internal pure returns (bool) {

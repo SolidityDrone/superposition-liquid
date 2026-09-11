@@ -14,7 +14,7 @@ import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
@@ -26,7 +26,7 @@ contract CapitalDrainE2ETest is Test {
     MockToken internal weth;
     MockToken internal usdc;
     AaveV3Adapter internal adapter;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
 
     address internal maker;
     address internal taker;
@@ -50,8 +50,8 @@ contract CapitalDrainE2ETest is Test {
         pool.registerAToken(address(usdc), new MockAToken());
         adapter = new AaveV3Adapter(address(pool));
         MakerConfig makerConfig = new MakerConfig();
-        router = new SupercazzolaRouter(
-            address(aqua), address(weth), makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig)
+        router = new SuperPositionVMRouter(
+            address(aqua), address(weth), makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)
         );
 
         // maker capital 100% in the lending protocol

@@ -53,7 +53,7 @@ original repository README.
 
 ## 2. Why an adapter, and why "one-sided"
 
-Supercazzola is a meta-layer: `MakerConfig` maps `(maker, token) -> ILendingAdapter`, and
+Superposition is a meta-layer: `MakerConfig` maps `(maker, token) -> ILendingAdapter`, and
 the router JIT-deploys capital on receive (`postTransferIn`) and JIT-withdraws on send
 (`preTransferOut`) using a single token at a time.
 
@@ -183,7 +183,7 @@ token.
   exercises the operator delegation and the hook burns the maker's shares directly. The
   economic effect is identical to a pull-and-withdraw, without transferring the NFT.
 - It does **not** swap on the hook's v4 pool. The fill is priced by the outer
-  Supercazzola AMM; the hook is used as the deposit/withdraw vault (aUSDC/aUSDT). The
+  Superposition AMM; the hook is used as the deposit/withdraw vault (aUSDC/aUSDT). The
   hook's own `beforeSwap`/`afterSwap` JIT runs only when a third party swaps the v4 pool,
   and that path is covered by the hook's own test suite.
 - It does **not** re-derive the quote from live balances. SwapVM quotes on the shipped
@@ -216,7 +216,7 @@ USDC `[1, 101]` (above spot), USDT `[-101, -1]` (below spot).
 2. If the predicted hook address has no code, deploy it through the deterministic
    CREATE2 proxy and call `initializePool(2**96)`; otherwise **reuse** it.
 3. Deploy `SuperpositionUniAdapter` targeting the hook and record `SuperpositionHook` +
-   `SuperpositionUniHook` in `deployments/supercazzola-ethereum.json`.
+   `SuperpositionUniHook` in `deployments/superposition-ethereum.json`.
 4. Arm the maker: ERC-20 approvals to the router/Aqua, ERC-1155
    `setApprovalForAll(adapter)`, and a one-sided LP into each bucket (idempotent).
 
@@ -233,7 +233,7 @@ forge test --match-path 'test/fork/EthereumForkSuperposition.t.sol' -vv
 
 Covers: hook deploy+init, adapter views, one-sided deposit (maker gets ERC-1155, hook
 holds aUSDC), delegated withdraw + `NotAuthorized` for non-operators + `NotRouter`, a full
-Supercazzola JIT fill with `quote() == swap()`, capital-in-hook assertions, and yield
+Superposition JIT fill with `quote() == swap()`, capital-in-hook assertions, and yield
 accrual growing the claim.
 
 Anvil demo (fork Ethereum; the worker funds + deploys + arms, then run the scenario):

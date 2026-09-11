@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 /// @title ILendingAdapter
-/// @notice Core abstraction: every lending protocol plugs into the SupercazzolaRouter
+/// @notice Core abstraction: every lending protocol plugs into the SuperPositionVMRouter
 ///         through this interface (SPEC.md — adapters section).
 interface ILendingAdapter {
     /// @notice Human-readable name, e.g. "AaveV3"

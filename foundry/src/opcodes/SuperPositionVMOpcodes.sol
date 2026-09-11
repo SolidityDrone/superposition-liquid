@@ -8,11 +8,11 @@ import { YieldAdjustedRateOpcode } from "src/opcodes/YieldAdjustedRateOpcode.sol
 import { MakerCapitalGuardOpcode, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { MakerConfig } from "src/config/MakerConfig.sol";
 
-/// @title SupercazzolaOpcodes
+/// @title SuperPositionVMOpcodes
 /// @notice AquaOpcodes table with two custom instructions appended at the end
 ///         (backward-compatible append-only pattern, see SPEC.md B3.1):
 ///         35 = YieldAdjustedRateXD, 36 = MakerCapitalGuardXD
-abstract contract SupercazzolaOpcodes is AquaOpcodes, YieldAdjustedRateOpcode, MakerCapitalGuardOpcode {
+abstract contract SuperPositionVMOpcodes is AquaOpcodes, YieldAdjustedRateOpcode, MakerCapitalGuardOpcode {
     constructor(address aqua) AquaOpcodes(aqua) { }
 
     /// @dev Abstract: the concrete router provides its MakerConfig so the

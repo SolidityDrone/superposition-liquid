@@ -31,7 +31,7 @@ cd foundry/script
 
 A background worker, as soon as the node answers, seeds the demo wallets (maker
 `0xA11CE`, taker `0xB0B`), deploys the chain's full stack (artifact in
-`deployments/supercazzola-<chain>.json`) and arms the maker (MAX approvals +
+`deployments/superposition-<chain>.json`) and arms the maker (MAX approvals +
 capital in every adapter). Wait for `── ready: pick a scenario ──`.
 Ctrl+C stops the node.
 
@@ -125,7 +125,7 @@ forge test --match-test test_swap -vvvv # one test, full trace
 - **Run each scenario on a fresh node** — scenarios ship an Aqua strategy with
   fixed balances, so re-shipping the same strategy on a dirty state reverts
   (`StrategiesMustBeImmutable`). Restart `start-anvil.sh`.
-- **A scenario needs its chain's artifact** (`deployments/supercazzola-<chain>.json`):
+- **A scenario needs its chain's artifact** (`deployments/superposition-<chain>.json`):
   the worker writes it; run `DeployAndSetup.s.sol` first if you skipped the worker.
 - **Stale artifacts** (`out/`, `cache/`) after removing source files make `forge
   script` panic with `type check failed for "offset (usize)"` — `rm -rf out cache`

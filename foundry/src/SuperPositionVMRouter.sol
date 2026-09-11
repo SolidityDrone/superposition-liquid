@@ -9,19 +9,19 @@ import { IMakerHooks } from "@1inch/swap-vm/interfaces/IMakerHooks.sol";
 import { SwapVM } from "@1inch/swap-vm/SwapVM.sol";
 import { Context } from "@1inch/swap-vm/libs/VM.sol";
 
-import { SupercazzolaOpcodes } from "src/opcodes/SupercazzolaOpcodes.sol";
+import { SuperPositionVMOpcodes } from "src/opcodes/SuperPositionVMOpcodes.sol";
 import { MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
 import { MakerCapitalGuardOpcode } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { YieldAdjustedRateOpcode } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { ILendingAdapter } from "src/interfaces/ILendingAdapter.sol";
 
-/// @title SupercazzolaRouter
+/// @title SuperPositionVMRouter
 /// @notice Modified SwapVM redeploy: makers provide ETH/USDC liquidity while keeping 100%
 ///         of capital in a lending protocol (Aave v3 via adapters). Every fill cycles
 ///         capital JIT: withdraw from lending -> deliver to taker -> deposit back,
 ///         atomically within the swap transaction (SPEC.md B1.2 JIT-unwrap pattern).
 /// @dev The router is both the VM executor and the maker hooks target.
-contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHooks {
+contract SuperPositionVMRouter is Simulator, SwapVM, SuperPositionVMOpcodes, IMakerHooks {
     using SafeERC20 for IERC20;
 
     MakerConfig public immutable MAKER_CONFIG;
@@ -33,7 +33,7 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
         string memory name,
         string memory version,
         address makerConfig
-    ) SwapVM(aqua, weth, owner, name, version) SupercazzolaOpcodes(aqua) {
+    ) SwapVM(aqua, weth, owner, name, version) SuperPositionVMOpcodes(aqua) {
         MAKER_CONFIG = MakerConfig(makerConfig);
     }
 
@@ -44,7 +44,7 @@ contract SupercazzolaRouter is Simulator, SwapVM, SupercazzolaOpcodes, IMakerHoo
 
     /// @notice Opcode-context hook: the custom opcodes resolve the maker's
     ///         side adapters from the same registry the hooks use.
-    function _makerConfig() internal view override(SupercazzolaOpcodes) returns (MakerConfig) {
+    function _makerConfig() internal view override(SuperPositionVMOpcodes) returns (MakerConfig) {
         return MAKER_CONFIG;
     }
 

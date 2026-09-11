@@ -14,7 +14,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { BaseChain } from "./BaseChain.s.sol";
 
@@ -29,7 +29,7 @@ contract Demo is Script, StdCheats {
 
     AaveV3Adapter internal adapter;
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
     IAqua internal aqua;
 
     address internal weth = BaseChain.WETH;
@@ -63,10 +63,10 @@ contract Demo is Script, StdCheats {
 
         // reuse the real deployment artifact when present (Deploy.s.sol), else
         // deploy a fresh stack: the demo then runs maker setup + ship + fills.
-        try vm.readFile("deployments/supercazzola.json") returns (string memory raw) {
+        try vm.readFile("deployments/superposition.json") returns (string memory raw) {
             address deployedRouter = vm.parseAddress(vm.parseJsonString(raw, ".router"));
             address payable p = payable(deployedRouter);
-            router = SupercazzolaRouter(p);
+            router = SuperPositionVMRouter(p);
             makerConfig = MakerConfig(router.MAKER_CONFIG());
             // the adapter is the maker's own choice at config time: the demo
             // deploys a fresh AaveV3Adapter for the Aave sides (broadcast)
@@ -78,7 +78,7 @@ contract Demo is Script, StdCheats {
             vm.startBroadcast(deployerKey);
             makerConfig = new MakerConfig();
             adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
-            router = new SupercazzolaRouter(BaseChain.AQUA, weth, msg.sender, "SupercazzolaRouter", "1", address(makerConfig));
+            router = new SuperPositionVMRouter(BaseChain.AQUA, weth, msg.sender, "SuperPositionVMRouter", "1", address(makerConfig));
             vm.stopBroadcast();
         }
 

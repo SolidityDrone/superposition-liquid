@@ -15,13 +15,13 @@ import { MockAavePool, MockAToken } from "test/unit/mocks/MockAavePool.sol";
 import { MockToken } from "test/unit/mocks/MockToken.sol";
 import { AaveV3Adapter } from "src/adapters/AaveV3Adapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 import { AggregatorV3Interface } from "src/interfaces/AggregatorV3Interface.sol";
 
 /// @notice Full E2E on mocks: ship -> quote -> swap with JIT Aave cycling.
-contract SupercazzolaRouterTest is Test {
+contract SuperPositionVMRouterTest is Test {
     uint256 internal constant RAY = 1e27;
 
     Aqua internal aqua;
@@ -32,7 +32,7 @@ contract SupercazzolaRouterTest is Test {
     MockToken internal usdc;
     AaveV3Adapter internal adapter;
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
 
     address internal maker;
     address internal taker;
@@ -56,8 +56,8 @@ contract SupercazzolaRouterTest is Test {
         pool.registerAToken(address(usdc), aTokenUsdc);
         adapter = new AaveV3Adapter(address(pool));
         makerConfig = new MakerConfig();
-        router = new SupercazzolaRouter(
-            address(aqua), address(weth), makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig)
+        router = new SuperPositionVMRouter(
+            address(aqua), address(weth), makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)
         );
 
         _setupMaker();

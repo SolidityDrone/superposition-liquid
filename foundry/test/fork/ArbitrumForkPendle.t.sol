@@ -12,7 +12,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
@@ -30,7 +30,7 @@ contract ArbitrumForkPendleTest is Test {
 
     PendlePTAdapter internal adapter;
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
     IAqua internal aqua;
     IERC20 internal pt;
 
@@ -48,7 +48,7 @@ contract ArbitrumForkPendleTest is Test {
         pt = IERC20(adapter.yieldToken(USDC));
 
         makerConfig = new MakerConfig();
-        router = new SupercazzolaRouter(AQUA, WETH, makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig));
+        router = new SuperPositionVMRouter(AQUA, WETH, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig));
 
         // maker capital: fixed-income USDC side (expired PT) + plain WETH side (passthrough)
         deal(address(pt), maker, 20_000e6);

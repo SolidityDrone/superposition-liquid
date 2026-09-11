@@ -12,7 +12,7 @@ import { FeeArgsBuilder } from "@1inch/swap-vm/instructions/Fee.sol";
 
 import { PendlePTAdapter } from "src/adapters/pendle/PendlePTAdapter.sol";
 import { AdapterKind, MakerConfig, SideConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { YieldArgsBuilder, YIELD_ADJUSTED_RATE_XD } from "src/opcodes/YieldAdjustedRateOpcode.sol";
 import { CapitalArgsBuilder, MAKER_CAPITAL_GUARD_XD } from "src/opcodes/MakerCapitalGuardOpcode.sol";
 
@@ -29,7 +29,7 @@ contract MainnetForkPendleActiveTest is Test {
 
     PendlePTAdapter internal adapter;
     MakerConfig internal makerConfig;
-    SupercazzolaRouter internal router;
+    SuperPositionVMRouter internal router;
     IAqua internal aqua;
     IERC20 internal pt;
 
@@ -47,7 +47,7 @@ contract MainnetForkPendleActiveTest is Test {
         pt = IERC20(adapter.yieldToken(WSTETH));
 
         makerConfig = new MakerConfig();
-        router = new SupercazzolaRouter(AQUA, WSTETH, makeAddr("owner"), "SupercazzolaRouter", "1", address(makerConfig));
+        router = new SuperPositionVMRouter(AQUA, WSTETH, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig));
 
         // sanity: the market is active and PT trades at a discount (fixed income)
         assertTrue(!adapter.isExpiredMarket(), "market must be active");

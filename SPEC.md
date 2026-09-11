@@ -1,4 +1,4 @@
-# Supercazzola Brematurata — SPEC FINAL v1.0
+# SuperPositionVM — SPEC FINAL v1.0
 
 ETHOnline 2026 · single dev · 1 week · bounty: 1inch Aqua (primary), Chainlink Data Feeds (secondary)
 
@@ -36,7 +36,7 @@ plug in per-maker.
 | B7.2 | Virtual balance shipped in **aToken count units** (non underlying): effective = count × rate = real underlying esatto. Ship-side dust buffer (~1e4 raw) sul lato in: il rounding displayed di Aave può lasciare il real 1-2 wei sotto l'importo pushed esatto | ship amounts; invariant real ≥ virtual |
 | B7.3 | Opcode dispatch bytes (v1.0.1): byte = indice statico − 1 (xycSwap=17, flatFeeIn=21, salt=20, gap 0-9/22-26). Custom: YieldAdjustedRateXD=**34**, ChainlinkGuardXD=**35** (appesi dopo onlyTxOrigin=33) [RIMOSSO v-late: l'opcode non fa parte del meta-layer; MakerCapitalGuardXD ora = **35**] | program bytecode |
 | B7.4 | Program order: `[yield][flatFeeIn][xyc][guard]` — flatFee esegue ricorsivamente il resto del programma e il guard deve vedere amountIn/amountOut già calcolati | program bytecode |
-| B7.5 | Hook **direction-agnostic**: la strategia 2D scambia in entrambe le direzioni → preTransferOut/postTransferIn matchano tokenOut/tokenIn contro ENTRAMBI gli underlyings della config (bug trovato dal demo fill #2) | SupercazzolaRouter hooks |
+| B7.5 | Hook **direction-agnostic**: la strategia 2D scambia in entrambe le direzioni → preTransferOut/postTransferIn matchano tokenOut/tokenIn contro ENTRAMBI gli underlyings della config (bug trovato dal demo fill #2) | SuperPositionVMRouter hooks |
 | B7.6 | [RIMOSSO v-late] Guard staleness **per-feed**: USDC/USD su Base aggiorna su heartbeat ~12h (stablecoin); ETH/USD ~1m. Args: (token0, token1, feed0, feed1, maxDevBps, staleness0, staleness1) = 92 bytes | ChainlinkGuardOpcode |
 | B7.7 | Approvals completi (update B4.1): `aWETH → adapter`, `aUSDC → adapter`, `WETH → Aqua`, `USDC → Aqua` (pull bidirezionale). Verificato dal demo: senza aUSDC→adapter il fill reverse reverta | maker setup |
 | B8.1 | **Adapter generico ERC-4626**: `ERC4626Adapter` copre qualsiasi vault 4626-compliant (testato contro mock in stile MetaMorpho/Morpho e Euler v2). Registry `underlying → vault` fissato al deploy; rate = `vault.convertToAssets(1e18)` (fonte: il vault stesso, niente oracle); `withdrawTo` = redeem diretto al recipient; `depositFor` = pull da maker + deposit con `forceApprove` verso il vault (il vault pulla dal caller) | src/adapters/ERC4626Adapter.sol |
@@ -45,7 +45,7 @@ plug in per-maker.
 ## Architettura (aggiornata JIT-unwrap)
 
 ```
-swap() (AquaSwapVMRouter fork = SupercazzolaRouter)
+swap() (AquaSwapVMRouter fork = SuperPositionVMRouter)
   runLoop: [_dynamicBalancesXD da Aqua virtual balances]
            [YieldAdjustedRateXD]      ← aWETH/aUSDC rate × balances (memory, quote-safe)
            [xycSwapXD]                ← pricing AMM
@@ -74,7 +74,7 @@ src/
   opcodes/
     YieldAdjustedRateOpcode.sol  (balanceIn/balanceOut × exchangeRate, 1e18)
                               staleness >1h → revert)
-  SupercazzolaRouter.sol     (Simulator, SwapVM, AquaOpcodes fork — opcodes appesi a fine table;
+  SuperPositionVMRouter.sol     (Simulator, SwapVM, AquaOpcodes fork — opcodes appesi a fine table;
                               hooks: hasPreTransferOutHook + hasPostTransferInHook, target = router)
 script/
   Deploy.s.sol               (router + adapter + config; maker setup script)
@@ -98,7 +98,7 @@ Dipendenze Foundry (submodule o remapping, pattern qilinswap):
 2. `USDC.approve(adapter, max)` — per depositFor
 3. `WETH.approve(AQUA registry, max)` — per Aqua.pull dopo JIT unwrap
 4. `MakerConfig.setConfig({adapter, underlyingIn: USDC, underlyingOut: WETH, autoDepositIn: true, autoWithdrawOut: true})`
-5. `AQUA.ship(app=SupercazzolaRouter, strategy=encoded Order, tokens=[WETH, USDC], amounts=virtual balances)` — nessuna verifica balance, nessun token movimentato
+5. `AQUA.ship(app=SuperPositionVMRouter, strategy=encoded Order, tokens=[WETH, USDC], amounts=virtual balances)` — nessuna verifica balance, nessun token movimentato
 6. Program: `[YieldAdjustedRateXD][xycSwapXD][flatFeeAmountInXD][MakerCapitalGuardXD]` + traits `useAquaInsteadOfSignature, hasPreTransferOutHook, hasPostTransferInHook, preTransferOutTarget=router, postTransferInTarget=router`
 
 ## Demo (bounty compliance)

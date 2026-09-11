@@ -15,7 +15,7 @@ import { StargateAdapter } from "src/adapters/stargate/StargateAdapter.sol";
 import { SuperpositionUniAdapter } from "src/adapters/superposition-uni-hook/SuperpositionUniAdapter.sol";
 import { ISuperpositionHook } from "src/adapters/superposition-uni-hook/ISuperpositionHook.sol";
 import { MakerConfig } from "src/config/MakerConfig.sol";
-import { SupercazzolaRouter } from "src/SupercazzolaRouter.sol";
+import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { SuperpositionHook } from "superposition-hook/SuperpositionHook.sol";
 import { HookMiner } from "superposition-hook/libraries/HookMiner.sol";
 import { BaseChain } from "./BaseChain.s.sol";
@@ -43,8 +43,8 @@ interface IPMarketLike {
 
 /// @title DeployAndSetup
 /// @notice One script, two phases:
-///   1. DEPLOY — MakerConfig + SupercazzolaRouter + EVERY adapter of the chain
-///      (artifact in deployments/supercazzola-<chain>.json)
+///   1. DEPLOY — MakerConfig + SuperPositionVMRouter + EVERY adapter of the chain
+///      (artifact in deployments/superposition-<chain>.json)
 ///   2. SETUP — the maker's one-time arming: MAX approvals for every token the
 ///      router can pull + capital deposited into every adapter; the taker's
 ///      tokenIn approvals too. Scenario scripts then only setSides + ship + fill.
@@ -64,7 +64,7 @@ contract DeployAndSetup is Script {
         bool deployOnly = vm.envOr("DEPLOY_ONLY", false);
         address aqua = _eq(chain, "base") ? BaseChain.AQUA : _eq(chain, "arbitrum") ? ARB_AQUA : ETH_AQUA;
         address weth = _eq(chain, "base") ? BaseChain.WETH : _eq(chain, "arbitrum") ? ARB_WETH : ETH_WETH;
-        string memory path = string.concat("deployments/supercazzola-", chain, ".json");
+        string memory path = string.concat("deployments/superposition-", chain, ".json");
 
         address router = _existingRouter(path);
         if (router == address(0)) {
@@ -85,8 +85,8 @@ contract DeployAndSetup is Script {
     {
         vm.startBroadcast(deployerKey);
         MakerConfig mc = new MakerConfig();
-        SupercazzolaRouter r = new SupercazzolaRouter(
-            aqua, weth, vm.addr(deployerKey), "SupercazzolaRouter", "1", address(mc)
+        SuperPositionVMRouter r = new SuperPositionVMRouter(
+            aqua, weth, vm.addr(deployerKey), "SuperPositionVMRouter", "1", address(mc)
         );
         router = address(r);
         console2.log("MakerConfig:", address(mc));
@@ -167,7 +167,7 @@ contract DeployAndSetup is Script {
         address taker = vm.addr(takerKey);
 
         if (_eq(chain, "base")) {
-            string memory art = vm.readFile("deployments/supercazzola-base.json");
+            string memory art = vm.readFile("deployments/superposition-base.json");
             address aaveAd = vm.parseAddress(vm.parseJsonString(art, ".AaveV3"));
             address ercAd = vm.parseAddress(vm.parseJsonString(art, ".ERC4626"));
             address stgAd = vm.parseAddress(vm.parseJsonString(art, ".Stargate"));
@@ -218,7 +218,7 @@ contract DeployAndSetup is Script {
             console2.log("== setup arbitrum: pendle-expired approvals ==");
         } else {
             address pt = _pt(ETH_MARKET);
-            string memory art = vm.readFile("deployments/supercazzola-ethereum.json");
+            string memory art = vm.readFile("deployments/superposition-ethereum.json");
             address supAd = vm.parseAddress(vm.parseJsonString(art, ".SuperpositionUniHook"));
             address supHook = vm.parseAddress(vm.parseJsonString(art, ".SuperpositionHook"));
             address shareToken = ISuperpositionHook(supHook).shareToken();

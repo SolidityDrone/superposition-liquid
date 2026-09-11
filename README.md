@@ -231,7 +231,7 @@ deployments (permissionless — deploy your own).
 ```
 foundry/
   src/
-    SupercazzolaRouter.sol          # SwapVM fork + JIT hooks + custom opcode table
+    SuperPositionVMRouter.sol          # SwapVM fork + JIT hooks + custom opcode table
     config/MakerConfig.sol          # per-maker adapter configuration (msg.sender-owned)
     adapters/
       AaveV3Adapter.sol             # Aave v3 (v3.2 displayed-balance aware)
@@ -244,7 +244,7 @@ foundry/
     opcodes/
       YieldAdjustedRateOpcode.sol   # byte 34: registers × rate(now)/rate(ship)
       MakerCapitalGuardOpcode.sol   # byte 36: simulated-withdrawal fill oracle
-      SupercazzolaOpcodes.sol       # AquaOpcodes table + the two appended opcodes
+      SuperPositionVMOpcodes.sol       # AquaOpcodes table + the two appended opcodes
   script/
     base/ arbitrum/ ethereum/       # per-chain live scenarios (one forge script per adapter)
     AnvilScenario.s.sol             # scenario base contract: approvals, deploy, setSides, ship, fills

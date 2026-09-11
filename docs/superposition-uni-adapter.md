@@ -5,7 +5,11 @@ yield-bearing limit-order maker profile, built on the **Superposition** Uniswap 
 
 > **Original hook repository:** <https://github.com/SolidityDrone/superposition-hook-uni-v4>
 > The hook source is vendored here as the git submodule `foundry/lib/superposition-hook`
-> (pinned commit `70651c6`) and compiled unmodified.
+> (pinned commit `7922821`) and compiled unmodified.
+>
+> **v-late: the hook is protocol-agnostic ERC-4626.** It no longer touches Aave directly;
+> the pool is backed by two ERC-4626 vaults (`vault0`/`vault1`) and Aave is used through
+> its official `waToken` wrapper. Only the hook deployment changed — the adapter is the same.
 
 This file preserves the full context of the integration: how the hook works, why the
 adapter is shaped the way it is, the exact JIT data flow, and the on-chain facts we
@@ -16,14 +20,14 @@ discovered while building it.
 ## 1. What Superposition is (the venue)
 
 `SuperpositionHook` is a Uniswap v4 concentrated-liquidity hook that keeps **100% of
-pooled capital in Aave v3 between swaps**. Its pool liquidity is *virtual*: between swaps
+pooled capital in ERC-4626 lending vaults between swaps**. Its pool liquidity is *virtual*: between swaps
 the pool holds zero real tokens, and `beforeSwap`/`afterSwap` materialize the recorded
-tick ranges as real v4 liquidity for the duration of a swap, then unwind it and re-supply
-everything to Aave.
+tick ranges as real v4 liquidity for the duration of a swap, then unwind it and re-deposit
+everything into the vaults.
 
 Ownership is tracked **per tick range** (a *bucket*), and each bucket's claim
 (`c0` = token0 amount, `c1` = token1 amount) is updated by per-bucket swap PnL and by a
-per-token, pro-rata distribution of Aave yield. A bucket that sits entirely on one side of
+per-token, pro-rata distribution of lending yield. A bucket that sits entirely on one side of
 the current price is **one-sided**:
 
 - a range fully **below** spot needs only token1 (a bid);
@@ -158,7 +162,7 @@ taker -> router: swap(USDT -> USDC)
     adapter.pullPlan             -> (0,0,0)                      // nothing moves from the wallet
     adapter.withdraw(maker, USDC, amountOut, _, maker)           // adapter = operator, ROUTER-only
       -> HOOK.withdraw({usdcRange, owner: maker, shares, recipient: maker})
-         burns maker ERC-1155 shares, pays USDC from idle + aUSDC (Aave)
+         burns maker ERC-1155 shares, pays USDC from idle + the waUSDC vault
 
   SwapVM: USDC maker -> taker
 
@@ -183,7 +187,7 @@ token.
   exercises the operator delegation and the hook burns the maker's shares directly. The
   economic effect is identical to a pull-and-withdraw, without transferring the NFT.
 - It does **not** swap on the hook's v4 pool. The fill is priced by the outer
-  Superposition AMM; the hook is used as the deposit/withdraw vault (aUSDC/aUSDT). The
+  Superposition AMM; the hook is used as the deposit/withdraw vault (the waUSDC/waUSDT ERC-4626 vaults). The
   hook's own `beforeSwap`/`afterSwap` JIT runs only when a third party swaps the v4 pool,
   and that path is covered by the hook's own test suite.
 - It does **not** re-derive the quote from live balances. SwapVM quotes on the shipped
@@ -200,9 +204,9 @@ token.
 | Contract | Address |
 |---|---|
 | Uniswap v4 `PoolManager` | `0x000000000004444c5dc75cB358380D2e3dE08A90` |
-| Aave v3 `Pool` | `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2` |
-| USDC (6) / aUSDC | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` / `0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c` |
-| USDT (6) / aUSDT | `0xdAC17F958D2ee523a2206206994597C13D831ec7` / `0x23878914EFE38d27C4D67Ab83ed1b93A74D4086a` |
+| Aave ERC-4626 wrapper waUSDC | `0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E` |
+| Aave ERC-4626 wrapper waUSDT | `0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8` |
+| Aave `STATA_FACTORY` (permissionless wrapper factory) | `0xCb0b5cA20b6C5C02A9A3B2cE433650768eD2974F` |
 | Aqua / CREATE2 deployer | `0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a` / `0x4e59b44847b379578588920cA78FbF26c0B4956C` |
 
 Pool: `currency0 = USDC`, `currency1 = USDT` (address order), `fee = 100`,
@@ -224,7 +228,7 @@ USDC `[1, 101]` (above spot), USDT `[-101, -1]` (below spot).
 
 ## 7. Running it
 
-Fork test — real Uniswap v4 + Aave v3 on Ethereum mainnet:
+Fork test — real Uniswap v4 + Aave ERC-4626 wrappers on Ethereum mainnet:
 
 ```bash
 cd foundry
@@ -232,7 +236,7 @@ forge test --match-path 'test/fork/EthereumForkSuperposition.t.sol' -vv
 ```
 
 Covers: hook deploy+init, adapter views, one-sided deposit (maker gets ERC-1155, hook
-holds aUSDC), delegated withdraw + `NotAuthorized` for non-operators + `NotRouter`, a full
+holds the wrapper shares), delegated withdraw + `NotAuthorized` for non-operators + `NotRouter`, a full
 Superposition JIT fill with `quote() == swap()`, capital-in-hook assertions, and yield
 accrual growing the claim.
 
@@ -267,6 +271,6 @@ Demo numbers (100k/100k buckets): a taker's 1000 USDT fills at ~987 USDC (`quote
 - **Quote drift.** Virtual balances are shipped once and scaled only for yield; a
   composition change (crossed range, partial fills) is not automatically re-priced — the
   guard prevents overselling but the quoted price can lag until the maker re-ships.
-- **Aave cash.** `maxWithdrawable` clamps to the hook's real aToken balance; it does not
+- **Vault cash.** `maxWithdrawable` clamps to the hook's real ERC-4626 vault position; it does not
   additionally check Aave's available cash (a withdrawal could still revert if the reserve
   is fully borrowed).

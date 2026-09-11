@@ -14,6 +14,7 @@ import { ERC4626Adapter } from "src/adapters/ERC4626Adapter.sol";
 import { StargateAdapter } from "src/adapters/stargate/StargateAdapter.sol";
 import { SuperpositionUniAdapter } from "src/adapters/superposition-uni-hook/SuperpositionUniAdapter.sol";
 import { ISuperpositionHook } from "src/adapters/superposition-uni-hook/ISuperpositionHook.sol";
+import { IStataTokenFactory } from "src/interfaces/IStataTokenFactory.sol";
 import { MakerConfig } from "src/config/MakerConfig.sol";
 import { SuperPositionVMRouter } from "src/SuperPositionVMRouter.sol";
 import { SuperpositionHook } from "superposition-hook/SuperpositionHook.sol";
@@ -29,9 +30,7 @@ address constant ETH_WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 address constant ETH_USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 address constant ETH_USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 address constant ETH_MARKET = 0x34280882267ffa6383B363E278B027Be083bBe3b; // PT-wstETH (ACTIVE)
-address constant ETH_AAVE = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
-address constant ETH_AUSDC = 0x98C23E9d8f34FEFb1B7BD6a91B7FF122F4e16F5c;
-address constant ETH_AUSDT = 0x23878914EFE38d27C4D67Ab83ed1b93A74D4086a;
+address constant ETH_STATA_FACTORY = 0xCb0b5cA20b6C5C02A9A3B2cE433650768eD2974F; // Aave StataTokenFactory (Ethereum)
 address constant ETH_PM = 0x000000000004444c5dc75cB358380D2e3dE08A90;
 address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 address constant BASE_STARGATE_POOL = 0x27a16dc786820B16E5c9028b75B99F6f604b5d26;
@@ -104,7 +103,7 @@ contract DeployAndSetup is Script {
         } else if (_eq(chain, "ethereum")) {
             // self-deploy the Superposition hook conditionally (CREATE2, mined salt)
             vm.stopBroadcast();
-            address hook = _deploySuperpositionHookIfNeeded(deployerKey);
+            (address hook, , ) = _deploySuperpositionHookIfNeeded(deployerKey);
             vm.startBroadcast(deployerKey);
             address sup = address(
                 new SuperpositionUniAdapter(hook, router, ETH_USDC, 1, 101, ETH_USDT, -101, -1)
@@ -119,28 +118,28 @@ contract DeployAndSetup is Script {
     }
 
     /// @dev Deploys the Superposition hook on Ethereum if it has no code yet; otherwise reuses it.
-    function _deploySuperpositionHookIfNeeded(uint256 deployerKey) internal returns (address hook) {
+    ///      The pool is backed by Aave's ERC-4626 wrappers, resolved (or created) via the
+    ///      permissionless StataToken factory.
+    function _deploySuperpositionHookIfNeeded(uint256 deployerKey)
+        internal
+        returns (address hook, address vault0, address vault1)
+    {
+        vault0 = _stataWrapper(ETH_STATA_FACTORY, ETH_USDC, deployerKey);
+        vault1 = _stataWrapper(ETH_STATA_FACTORY, ETH_USDT, deployerKey);
+
         uint160 flags = uint160(
             Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
                 | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
         );
         bytes memory args = abi.encode(
-            IPoolManager(ETH_PM),
-            ETH_AAVE,
-            ETH_USDC,
-            ETH_USDT,
-            ETH_AUSDC,
-            ETH_AUSDT,
-            uint24(100),
-            int24(1),
-            vm.addr(deployerKey)
+            IPoolManager(ETH_PM), vault0, vault1, uint24(100), int24(1), vm.addr(deployerKey)
         );
         (address predicted, bytes32 salt) =
             HookMiner.find(CREATE2_DEPLOYER, flags, type(SuperpositionHook).creationCode, args);
         hook = predicted;
         if (hook.code.length > 0) {
             console2.log("SuperpositionHook already live:", hook);
-            return hook;
+            return (hook, vault0, vault1);
         }
         bytes memory initCode = abi.encodePacked(type(SuperpositionHook).creationCode, args);
         vm.startBroadcast(deployerKey);
@@ -149,6 +148,20 @@ contract DeployAndSetup is Script {
         SuperpositionHook(hook).initializePool(79228162514264337593543950336); // price 1.0
         vm.stopBroadcast();
         console2.log("SuperpositionHook:", hook);
+    }
+
+    /// @dev Returns the ERC-4626 wrapper for `asset`, creating it via the permissionless
+    ///      StataToken factory if no wrapper exists yet.
+    function _stataWrapper(address factory, address asset, uint256 key) internal returns (address wrapper) {
+        wrapper = IStataTokenFactory(factory).getStataToken(asset);
+        if (wrapper != address(0)) return wrapper;
+        address[] memory assets = new address[](1);
+        assets[0] = asset;
+        vm.startBroadcast(key);
+        wrapper = IStataTokenFactory(factory).createStataTokens(assets)[0];
+        vm.stopBroadcast();
+        require(wrapper != address(0), "stata wrapper not created");
+        console2.log("created StataToken wrapper:", wrapper);
     }
 
     function _existingRouter(string memory path) internal view returns (address) {

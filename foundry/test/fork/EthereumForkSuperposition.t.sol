@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import { SuperpositionFixture } from "../helpers/SuperpositionFixture.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC1155 } from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import { IAqua } from "@1inch/aqua/src/interfaces/IAqua.sol";
@@ -56,7 +57,7 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         vm.stopPrank();
 
         assertGt(hook.sharesOf(maker, 1, 101), 0);
-        assertGt(IERC20(AUSDC).balanceOf(address(hook)), 990e6);
+        assertGt(IERC4626(WA_USDC).convertToAssets(IERC4626(WA_USDC).balanceOf(address(hook))), 990e6);
         assertEq(hook.sharesOf(maker, -101, -1), 0);
         assertGt(adapter.maxWithdrawable(maker, USDC), 0);
     }
@@ -198,11 +199,19 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         vm.stopPrank();
 
         // BEFORE the swap: the maker's capital is INSIDE the Uni/Superposition hook,
-        // not idle in the wallet — the buckets are Aave-backed (aUSDC/aUSDT).
+        // not idle in the wallet — the buckets are backed by Aave's ERC-4626 wrappers.
         assertEq(IERC20(USDC).balanceOf(maker), 0, "maker idle USDC must be 0");
         assertEq(IERC20(USDT).balanceOf(maker), 0, "maker idle USDT must be 0");
-        assertGe(IERC20(AUSDC).balanceOf(address(hook)), 999_000e6, "hook holds aUSDC");
-        assertGe(IERC20(AUSDT).balanceOf(address(hook)), 999_000e6, "hook holds aUSDT");
+        assertGe(
+            IERC4626(WA_USDC).convertToAssets(IERC4626(WA_USDC).balanceOf(address(hook))),
+            999_000e6,
+            "hook holds waUSDC-backed USDC"
+        );
+        assertGe(
+            IERC4626(WA_USDT).convertToAssets(IERC4626(WA_USDT).balanceOf(address(hook))),
+            999_000e6,
+            "hook holds waUSDT-backed USDT"
+        );
         assertGt(hook.sharesOf(maker, 1, 101), 0, "maker holds ERC-1155 bucket shares");
         assertGe(adapter.maxWithdrawable(maker, USDC), 999_000e6, "withdrawable USDC backing");
 

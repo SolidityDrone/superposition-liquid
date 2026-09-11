@@ -223,25 +223,27 @@ contract DeployAndSetup is Script {
             address supHook = vm.parseAddress(vm.parseJsonString(art, ".SuperpositionHook"));
             address shareToken = ISuperpositionHook(supHook).shareToken();
             vm.startBroadcast(makerKey);
-            IERC20(ETH_USDC).forceApprove(router, MAX);
-            IERC20(ETH_USDT).forceApprove(router, MAX);
-            IERC20(pt).forceApprove(router, MAX);
-            IERC20(ETH_USDC).forceApprove(aqua, MAX);
-            IERC20(ETH_USDT).forceApprove(aqua, MAX);
-            IERC1155(shareToken).setApprovalForAll(supAd, true);
-            // maker LP into the Superposition buckets (one-sided per token)
-            if (IERC20(ETH_USDC).balanceOf(maker) >= 100_000e6) {
+            if (IERC20(ETH_USDC).allowance(maker, router) != MAX) IERC20(ETH_USDC).forceApprove(router, MAX);
+            if (IERC20(ETH_USDT).allowance(maker, router) != MAX) IERC20(ETH_USDT).forceApprove(router, MAX);
+            if (IERC20(pt).allowance(maker, router) != MAX) IERC20(pt).forceApprove(router, MAX);
+            if (IERC20(ETH_USDC).allowance(maker, aqua) != MAX) IERC20(ETH_USDC).forceApprove(aqua, MAX);
+            if (IERC20(ETH_USDT).allowance(maker, aqua) != MAX) IERC20(ETH_USDT).forceApprove(aqua, MAX);
+            if (!IERC1155(shareToken).isApprovedForAll(maker, supAd)) {
+                IERC1155(shareToken).setApprovalForAll(supAd, true);
+            }
+            // maker LP into the Superposition buckets (one-sided per token); idempotent
+            if (ISuperpositionHook(supHook).sharesOf(maker, 1, 101) == 0 && IERC20(ETH_USDC).balanceOf(maker) >= 100_000e6) {
                 IERC20(ETH_USDC).safeTransfer(supAd, 100_000e6);
                 SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDC, 100_000e6);
             }
-            if (IERC20(ETH_USDT).balanceOf(maker) >= 100_000e6) {
+            if (ISuperpositionHook(supHook).sharesOf(maker, -101, -1) == 0 && IERC20(ETH_USDT).balanceOf(maker) >= 100_000e6) {
                 IERC20(ETH_USDT).safeTransfer(supAd, 100_000e6);
                 SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDT, 100_000e6);
             }
             vm.stopBroadcast();
             vm.startBroadcast(takerKey);
-            IERC20(ETH_USDC).forceApprove(router, MAX);
-            IERC20(ETH_USDT).forceApprove(router, MAX);
+            if (IERC20(ETH_USDC).allowance(taker, router) != MAX) IERC20(ETH_USDC).forceApprove(router, MAX);
+            if (IERC20(ETH_USDT).allowance(taker, router) != MAX) IERC20(ETH_USDT).forceApprove(router, MAX);
             vm.stopBroadcast();
             console2.log("== setup ethereum: pendle-active + superposition approvals + LP ==");
         }

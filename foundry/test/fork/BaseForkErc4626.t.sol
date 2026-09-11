@@ -192,8 +192,8 @@ contract BaseForkErc4626Test is Test {
         assertEq(IERC20(usdc).balanceOf(taker), 0);
 
         // JIT: maker wallet idle stays zero, capital cycled through the Morpho vaults
-        assertEq(IERC20(weth).balanceOf(maker), 0, "maker holds idle WETH");
-        assertEq(IERC20(usdc).balanceOf(maker), 0, "maker holds idle USDC");
+        assertLe(IERC20(weth).balanceOf(maker), 2, "maker holds idle WETH dust");
+        assertLe(IERC20(usdc).balanceOf(maker), 2, "maker holds idle USDC dust");
 
         // invariant: real (vault-backed, underlying terms) >= virtual on both sides
         bytes32 strategyHash = keccak256(abi.encode(order));

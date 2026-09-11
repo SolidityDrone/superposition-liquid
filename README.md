@@ -200,6 +200,24 @@ through the real deployed contracts on the fork.
 
 ---
 
+## Mainnet support
+
+| Chain | Chain ID | Config / RPC |
+|---|---|---|
+| Base | 8453 | `script/BaseChain.s.sol` — `https://mainnet.base.org` |
+| Ethereum | 1 | addresses inline in `script/DeployAndSetup.s.sol` — `https://ethereum-rpc.publicnode.com` |
+
+**Adapter availability on mainnet:**
+
+| Adapter | Base | Ethereum |
+|---|---|---|
+| AaveV3Adapter | ✅ | ❌ |
+| ERC4626Adapter (Morpho / Euler / Aave wrappers) | ✅ | ❌ |
+| StargateAdapter | ✅ | ❌ |
+| PendlePTAdapter | ❌ | ✅ (PT-wstETH, active) |
+| SuperpositionUniAdapter | ❌ | ✅ (USDC/USDT on the Superposition v4 hook) |
+| WstETHAdapter (`adapter-in-out-config`) | ❌ | ✅ |
+
 ## Testnet support
 
 Chain configuration files for public testnets are in `foundry/script/`:
@@ -208,21 +226,20 @@ Chain configuration files for public testnets are in `foundry/script/`:
 |---|---|---|---|
 | Ethereum Sepolia | 11155111 | `SepoliaChain.s.sol` | `https://ethereum-sepolia.publicnode.com` |
 | Base Sepolia | 84532 | `BaseSepoliaChain.s.sol` | `https://sepolia.base.org` |
-| Arbitrum Sepolia | 421614 | `ArbitrumSepoliaChain.s.sol` | `https://sepolia-rollup.arbitrum.io/rpc` |
 
 **Adapter availability per testnet:**
 
-| Adapter | Ethereum Sepolia | Base Sepolia | Arbitrum Sepolia |
-|---|---|---|---|
-| AaveV3Adapter | ✅ | ✅ (WETH only) | ❌ |
-| StargateAdapter | ✅ | ❌ | ❌ |
-| PendlePTAdapter | ❌ | ❌ | ❌ |
-| ERC4626Adapter (Morpho/Euler) | ❌ | ❌ | ❌ |
-| WstETHAdapter | ❌ | ❌ | ❌ |
+| Adapter | Ethereum Sepolia | Base Sepolia |
+|---|---|---|
+| AaveV3Adapter | ✅ | ✅ (WETH only) |
+| StargateAdapter | ✅ | ❌ |
+| PendlePTAdapter | ❌ | ❌ |
+| ERC4626Adapter (Morpho/Euler) | ❌ | ❌ |
+| WstETHAdapter | ❌ | ❌ |
 
-Aqua registry + SwapVM router use the **same vanity addresses** as mainnet on all
-three testnets. Morpho, Euler, Pendle, and wstETH have no public testnet
-deployments (permissionless — deploy your own).
+Aqua registry + SwapVM router use the **same vanity addresses** as mainnet on both
+testnets. Morpho, Euler, Pendle, and wstETH have no public testnet deployments
+(permissionless — deploy your own).
 
 ---
 

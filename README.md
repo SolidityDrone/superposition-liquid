@@ -4,7 +4,7 @@
 
 # Superposition-Liquid
 
-**A 1inch Aqua liquidity position backed 100% by yield protocols — looking like a plain ETH/USDC pool to the outside world.**
+**A meta-layer for 1inch Aqua / SwapVM: appended opcodes + maker hooks — not a new pricing curve. It plugs into any of them, so liquidity whose virtual units are yield-bearing tokens behaves like a plain ETH/USDC pool.**
 
 Makers ship an ETH/USDC strategy on 1inch Aqua, but their capital never sits idle: it
 lives inside a yield protocol (Aave, Morpho, Euler, Lido, Pendle, Stargate). Every fill

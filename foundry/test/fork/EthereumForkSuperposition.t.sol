@@ -197,6 +197,15 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         IAqua(AQUA).ship(address(router), abi.encode(order), tokens, amounts);
         vm.stopPrank();
 
+        // BEFORE the swap: the maker's capital is INSIDE the Uni/Superposition hook,
+        // not idle in the wallet — the buckets are Aave-backed (aUSDC/aUSDT).
+        assertEq(IERC20(USDC).balanceOf(maker), 0, "maker idle USDC must be 0");
+        assertEq(IERC20(USDT).balanceOf(maker), 0, "maker idle USDT must be 0");
+        assertGe(IERC20(AUSDC).balanceOf(address(hook)), 999_000e6, "hook holds aUSDC");
+        assertGe(IERC20(AUSDT).balanceOf(address(hook)), 999_000e6, "hook holds aUSDT");
+        assertGt(hook.sharesOf(maker, 1, 101), 0, "maker holds ERC-1155 bucket shares");
+        assertGe(adapter.maxWithdrawable(maker, USDC), 999_000e6, "withdrawable USDC backing");
+
         deal(USDT, taker, 1_000e6);
         (, uint256 quotedOut,) = router.quote(order, USDT, USDC, 1_000e6, _takerTraits());
         vm.startPrank(taker);

@@ -11,7 +11,8 @@ enum AdapterKind {
     AaveV3,
     ERC4626,
     Stargate,
-    PendlePT
+    PendlePT,
+    SuperpositionUniHook
 }
 
 /// @notice One managed side of a maker's position: for `underlying`, the

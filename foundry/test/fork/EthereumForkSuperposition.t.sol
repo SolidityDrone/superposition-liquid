@@ -137,13 +137,16 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         SuperpositionUniAdapter adapter =
             new SuperpositionUniAdapter(address(hook), address(router), USDC, 1, 101, USDT, -101, -1);
 
-        // maker LPs USDC into the hook bucket, keeps USDT passthrough
-        deal(USDC, maker, 5_000e6);
-        deal(USDT, maker, 6_000e6);
+        // maker LPs USDC + USDT into their one-sided buckets
+        deal(USDC, maker, 1_000_000e6);
+        deal(USDT, maker, 1_000_000e6);
         vm.startPrank(maker);
         IERC20(USDC).approve(address(adapter), type(uint256).max);
-        IERC20(USDC).transfer(address(adapter), 5_000e6);
-        adapter.deposit(maker, USDC, 5_000e6);
+        IERC20(USDC).transfer(address(adapter), 1_000_000e6);
+        adapter.deposit(maker, USDC, 1_000_000e6);
+        IERC20(USDT).forceApprove(address(adapter), type(uint256).max);
+        IERC20(USDT).safeTransfer(address(adapter), 1_000_000e6);
+        adapter.deposit(maker, USDT, 1_000_000e6);
         IERC1155(hook.shareToken()).setApprovalForAll(address(adapter), true);
         IERC20(USDC).forceApprove(address(router), type(uint256).max);
         IERC20(USDT).forceApprove(address(router), type(uint256).max);
@@ -189,18 +192,20 @@ contract EthereumForkSuperpositionTest is SuperpositionFixture {
         tokens[0] = USDT;
         tokens[1] = USDC;
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 5_000e6; // USDT virtual (passthrough)
-        amounts[1] = 5_000e6; // USDC virtual (bucket-backed)
+        amounts[0] = 1_000_000e6; // USDT virtual (bucket-backed)
+        amounts[1] = 1_000_000e6; // USDC virtual (bucket-backed)
         IAqua(AQUA).ship(address(router), abi.encode(order), tokens, amounts);
         vm.stopPrank();
 
         deal(USDT, taker, 1_000e6);
+        (, uint256 quotedOut,) = router.quote(order, USDT, USDC, 1_000e6, _takerTraits());
         vm.startPrank(taker);
         IERC20(USDT).forceApprove(address(router), type(uint256).max);
         (, uint256 amountOut,) = router.swap(order, USDT, USDC, 1_000e6, _takerTraits());
         vm.stopPrank();
 
-        assertGt(amountOut, 800e6, "USDC out");
+        assertEq(quotedOut, amountOut, "quote == swap");
+        assertGt(amountOut, 990e6, "USDC out");
         assertEq(IERC20(USDC).balanceOf(taker), amountOut);
         // the USDT revenue was deposited into the USDT bucket
         assertGt(hook.sharesOf(maker, -101, -1), 0);

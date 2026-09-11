@@ -230,13 +230,13 @@ contract DeployAndSetup is Script {
             IERC20(ETH_USDT).forceApprove(aqua, MAX);
             IERC1155(shareToken).setApprovalForAll(supAd, true);
             // maker LP into the Superposition buckets (one-sided per token)
-            if (IERC20(ETH_USDC).balanceOf(maker) >= 5_000e6) {
-                IERC20(ETH_USDC).safeTransfer(supAd, 5_000e6);
-                SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDC, 5_000e6);
+            if (IERC20(ETH_USDC).balanceOf(maker) >= 100_000e6) {
+                IERC20(ETH_USDC).safeTransfer(supAd, 100_000e6);
+                SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDC, 100_000e6);
             }
-            if (IERC20(ETH_USDT).balanceOf(maker) >= 5_000e6) {
-                IERC20(ETH_USDT).safeTransfer(supAd, 5_000e6);
-                SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDT, 5_000e6);
+            if (IERC20(ETH_USDT).balanceOf(maker) >= 100_000e6) {
+                IERC20(ETH_USDT).safeTransfer(supAd, 100_000e6);
+                SuperpositionUniAdapter(supAd).deposit(maker, ETH_USDT, 100_000e6);
             }
             vm.stopBroadcast();
             vm.startBroadcast(takerKey);

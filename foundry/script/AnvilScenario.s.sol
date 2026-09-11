@@ -595,16 +595,16 @@ contract AnvilScenario is Script, StdCheats {
             vm.stopBroadcast();
         }
 
-        if (IERC20(supUsdc).balanceOf(maker) >= 5_000e6) {
+        if (ISuperpositionHook(hook).sharesOf(maker, 1, 101) == 0 && IERC20(supUsdc).balanceOf(maker) >= 100_000e6) {
             vm.startBroadcast(makerKey);
-            IERC20(supUsdc).safeTransfer(address(adapter), 5_000e6);
-            adapter.deposit(maker, supUsdc, 5_000e6);
+            IERC20(supUsdc).safeTransfer(address(adapter), 100_000e6);
+            adapter.deposit(maker, supUsdc, 100_000e6);
             vm.stopBroadcast();
         }
-        if (IERC20(supUsdt).balanceOf(maker) >= 5_000e6) {
+        if (ISuperpositionHook(hook).sharesOf(maker, -101, -1) == 0 && IERC20(supUsdt).balanceOf(maker) >= 100_000e6) {
             vm.startBroadcast(makerKey);
-            IERC20(supUsdt).safeTransfer(address(adapter), 5_000e6);
-            adapter.deposit(maker, supUsdt, 5_000e6);
+            IERC20(supUsdt).safeTransfer(address(adapter), 100_000e6);
+            adapter.deposit(maker, supUsdt, 100_000e6);
             vm.stopBroadcast();
         }
 
@@ -651,8 +651,8 @@ contract AnvilScenario is Script, StdCheats {
         vm.startBroadcast(makerKey);
         address[] memory shipTokens = _arr2(supUsdt, supUsdc);
         uint256[] memory shipAmounts = new uint256[](2);
-        shipAmounts[0] = 5_000e6;
-        shipAmounts[1] = 5_000e6;
+        shipAmounts[0] = 100_000e6;
+        shipAmounts[1] = 100_000e6;
         aqua.ship(address(router), abi.encode(order), shipTokens, shipAmounts);
         vm.stopBroadcast();
         _step("strategy shipped on Aqua");
@@ -664,7 +664,7 @@ contract AnvilScenario is Script, StdCheats {
         (, uint256 amountOut,) = router.swap(order, supUsdt, supUsdc, 1_000e6, _takerTraits());
         vm.stopBroadcast();
         _kv("amountOut (USDC)", amountOut);
-        _assert(amountOut > 800e6, "USDC out");
+        _assert(amountOut > 980e6, "USDC out");
     }
 
     function _takerTraits() internal pure returns (bytes memory) {

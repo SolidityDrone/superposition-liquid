@@ -44,6 +44,7 @@ The adapter layer is the product: any yield protocol plugs in per-maker, and the
 | `WstETHAdapter` | Lido wstETH (appreciating wrapper) | staking APY | shipped + fork-proven |
 | `PendlePTAdapter` | Pendle PT (expired = 1:1 claim / active = fixed income) | **fixed APY** | shipped + fork-proven (both states) |
 | `StargateAdapter` | Stargate V2 pool LP, staked | bridge reward stream | shipped + fork-proven |
+| `SuperpositionUniAdapter` | [Superposition](docs/superposition-uni-adapter.md) v4 hook buckets (USDC/USDT, ERC-1155 LP) | Aave yield + v4 fees | shipped + fork-proven (Ethereum) |
 
 Same AMM, same hooks, same position surface — the maker picks their risk profile by
 pointing `MakerConfig` at an adapter.
@@ -77,7 +78,7 @@ one-registry lookup the hooks perform at fill time:
 struct SideConfig {
     address underlying;   // e.g. WETH, USDC
     address adapter;      // the protocol holding THIS side's capital
-    AdapterKind kind;     // AaveV3 | ERC4626 | Stargate | PendlePT
+    AdapterKind kind;     // AaveV3 | ERC4626 | Stargate | PendlePT | SuperpositionUniHook
     bool autoManaged;     // JIT-deploy on receive, JIT-withdraw on send
 }
 ```
@@ -89,6 +90,7 @@ struct SideConfig {
 | `StargateAdapter` | Stargate v2 | LP tokens staked in the pool's staking — bridge fees + rewards |
 | `PendlePTAdapter` | Pendle | PT tokens — fixed yield (expired = 1:1 redemption, active = AMM exit) |
 | `WstETHAdapter` | Lido (branch `adapter-in-out-config`) | `wstETH` — staking yield, with a Curve swap leg |
+| `SuperpositionUniAdapter` | Superposition (Uniswap v4 hook) | one-sided ERC-1155 bucket shares — Aave yield + v4 fees |
 
 The adapters are **pull-less**: the router executes each adapter's `pullPlan`
 (token, exact count, destination) with its **own** allowance — the maker

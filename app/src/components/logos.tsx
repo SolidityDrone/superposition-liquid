@@ -53,18 +53,6 @@ export function EulerLogo({ size = 16 }: SvgProps) {
   );
 }
 
-export function LidoLogo({ size = 16 }: SvgProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path d="M12 2l3.2 3.2L12 8.4 8.8 5.2z" fill="#35a3ff" />
-      <path d="M18.8 8.8L22 12l-3.2 3.2-3.2-3.2z" fill="#35a3ff" />
-      <path d="M5.2 8.8L8.4 12l-3.2 3.2L2 12z" fill="#35a3ff" />
-      <path d="M12 15.6l3.2 3.2L12 22l-3.2-3.2z" fill="#35a3ff" />
-      <path d="M8.8 8.8h6.4v6.4H8.8z" fill="#7cc4ff" />
-    </svg>
-  );
-}
-
 export function PendleLogo({ size = 16 }: SvgProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
@@ -95,20 +83,6 @@ export function StargateLogo({ size = 16 }: SvgProps) {
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
       <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z" fill="#4c6fff" />
       <circle cx="12" cy="12" r="2.2" fill="#c7d6ff" />
-    </svg>
-  );
-}
-
-export function CurveLogo({ size = 16 }: SvgProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M17 7.2C15.9 5.8 14.1 5 12.2 5 8.5 5 5.6 8.1 5.6 12s2.9 7 6.6 7c1.9 0 3.7-.8 4.8-2.2"
-        stroke="#f5d020"
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-      />
     </svg>
   );
 }
@@ -186,15 +160,6 @@ export function VaultIcon({ size = 20 }: SvgProps) {
   );
 }
 
-export function StakingIcon({ size = 20 }: SvgProps) {
-  return (
-    <LineIcon size={size}>
-      <path d="M10 2.4c3.4 3.9 5.8 6.3 5.8 9.1a5.8 5.8 0 1 1-11.6 0c0-2.8 2.4-5.2 5.8-9.1z" />
-      <path d="M7.4 11.6a2.6 2.6 0 0 0 2.6 2.6" />
-    </LineIcon>
-  );
-}
-
 export function FixedIncomeIcon({ size = 20 }: SvgProps) {
   return (
     <LineIcon size={size}>
@@ -211,6 +176,37 @@ export function BridgeIcon({ size = 20 }: SvgProps) {
       <path d="M2.6 14.5v-1.4a7.4 7.4 0 0 1 14.8 0v1.4" />
       <path d="M2.6 14.5h14.8" />
       <path d="M6 14.5V17M14 14.5V17M10 10.4V17" />
+    </LineIcon>
+  );
+}
+
+/* ---------------- Uniswap v4 / hook ---------------- */
+
+export function UniswapLogo({ size = 16 }: SvgProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="12" fill="#ff37c7" />
+      <text
+        x="12"
+        y="16.4"
+        textAnchor="middle"
+        fontSize="11"
+        fontWeight="800"
+        fill="#0b1420"
+        fontFamily="system-ui, sans-serif"
+      >
+        v4
+      </text>
+    </svg>
+  );
+}
+
+export function HookIcon({ size = 20 }: SvgProps) {
+  return (
+    <LineIcon size={size}>
+      <path d="M10 2.6v8.2" />
+      <path d="M7.2 5.4h5.6" />
+      <path d="M10 10.8a4.4 4.4 0 0 1 4.4 4.4v.6a3 3 0 0 1-3 3 3 3 0 0 1-3-3" />
     </LineIcon>
   );
 }

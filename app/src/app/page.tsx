@@ -2,6 +2,7 @@ import TileBackground from "@/components/TileBackground";
 import FillDiagram from "@/components/FillDiagram";
 import CodeSnippet from "@/components/CodeSnippet";
 import BackedSection from "@/components/BackedSection";
+import UniswapBadge from "@/components/UniswapBadge";
 
 /* ---------- content ---------- */
 
@@ -38,7 +39,7 @@ const STEPS = [
     ),
     mech: (
       <>
-        <em>preTransferOut</em> hook → adapter.withdrawTo() → default transfer → taker
+        <em>preTransferOut</em> → <em>pullPlan</em> + <em>withdraw</em> → default transfer → taker
       </>
     ),
   },
@@ -54,28 +55,59 @@ const STEPS = [
     ),
     mech: (
       <>
-        Aqua <em>push()</em> → <em>postTransferIn</em> hook → adapter.depositFor() →
-        staked
+        Aqua transfer → <em>postTransferIn</em> → <em>deposit</em> → re-staked
       </>
     ),
   },
 ];
 
-const ENGINE = [
+const LAYERS = [
   {
-    byte: "0x22",
-    name: "Honest rates",
-    desc: "Pricing is scaled by the live exchange rate of the backing protocol. The ship-time rate is baked into the strategy, so only yield accrued after shipping moves the price — the fixed yield of a Pendle PT or the staking drift of wstETH shows up in real time.",
+    tag: "curve",
+    name: "Your SwapVM strategy",
+    body: "Any pricing program — xyk, curved, flat-price, or a custom curve. Superposition never touches it.",
+    hi: false,
   },
   {
-    byte: "0x23",
-    name: "Manipulation gets rejected",
-    desc: "Every fill is checked against Chainlink reference prices before anything moves. A price beyond the maker's tolerance band, or a stale feed, reverts the fill with the exact reason — on-chain, before execution.",
+    tag: "adapters",
+    name: "Capital adapters",
+    body: "One config entry per token saying where the capital rests between fills — Aave, any ERC-4626 vault, Stargate, Pendle, or a Uniswap v4 hook.",
+    hi: false,
   },
   {
-    byte: "0x24",
-    name: "No fake depth",
-    desc: "quote() simulates the actual withdrawal: if the maker's position — and the protocol's own liquidity — can't cover the delivery, the fill is rejected at quote time. Takers never see a promise the pool can't keep.",
+    tag: "meta-opcodes",
+    name: "Meta-opcodes",
+    body: "Extra instructions appended to the program, running alongside the pricing opcode: scale balances by the live yield rate, and reject any fill the maker's real capital can't cover.",
+    hi: true,
+  },
+  {
+    tag: "hooks",
+    name: "Hook orchestration",
+    body: "The router's pre/post-transfer hooks do the work — withdraw from the yield protocol, deliver the fill, re-deposit the proceeds — inside one atomic transaction.",
+    hi: false,
+  },
+];
+
+const HOOK = [
+  {
+    k: "vault",
+    title: "Capital in ERC-4626",
+    body: "Between swaps, 100% of the pooled tokens sit in ERC-4626 lending vaults — on Aave through its official waToken wrapper, created permissionlessly via the StataToken factory when one doesn't exist yet.",
+  },
+  {
+    k: "erc-1155",
+    title: "Positions as tokens",
+    body: "Every tick range is a bucket with its own ERC-1155 id. The maker holds the shares and approves the router as an operator; the router withdraws on the maker's behalf, one bucket per side.",
+  },
+  {
+    k: "one-sided",
+    title: "Limit orders for free",
+    body: "A range fully below spot needs only token1, fully above only token0 — so a one-sided, out-of-range deposit is a real limit order, and it withdraws one-sided once the price crosses.",
+  },
+  {
+    k: "adapter",
+    title: "Same Aqua surface",
+    body: "Exposed as an ILendingAdapter: the router JIT-withdraws the backing out of the hook to deliver a fill, then re-deposits the received revenue into the maker's buckets, all in one transaction.",
   },
 ];
 
@@ -93,9 +125,9 @@ export default function Page() {
             </div>
           </div>
           <div className="nav-right">
+            <a className="nav-hide" href="#backed">Adapters</a>
             <a className="nav-hide" href="#how">How it works</a>
-            <a className="nav-hide" href="#engine">The engine</a>
-            <a className="nav-hide" href="#backed">Backed by</a>
+            <a className="nav-hide" href="#hook">Uniswap hook</a>
             <a className="nav-mono" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
               github ↗
             </a>
@@ -109,17 +141,18 @@ export default function Page() {
         <div className="hero-scrim" aria-hidden />
         <div className="container hero-grid">
           <div className="hero-text">
-            <span className="hero-tag">BUILT ON 1INCH AQUA — ETHONLINE 2026</span>
+            <span className="hero-tag">META-LAYER FOR 1INCH AQUA — ETHONLINE 2026</span>
             <h1>
               Liquidity that
               <br />
               never sleeps<em>.</em>
             </h1>
             <p className="lede">
-              Superposition-Liquid is a custom Aqua router where <b>100% of the maker's
-              capital</b> sits in yield protocols — Aave, Morpho, Euler, Lido, Pendle,
-              Stargate — and cycles in and out <b>atomically on every fill</b>. To the
-              outside world, it reads as a plain ETH/USDC pool.
+              Superposition-Liquid is a <b>meta-layer for 1inch Aqua</b> — <b>capital
+              adapters</b> and <b>meta-opcodes</b> that wrap any SwapVM curve. The maker&apos;s
+              capital sits in yield protocols (Aave, Morpho, Euler, Pendle, Stargate,
+              Uniswap v4) and cycles in and out <b>atomically on every fill</b>; to the outside
+              world it reads as a plain ETH/USDC pool.
             </p>
             <div className="cta-row">
               <a className="btn btn-primary" href="#how">How it works ↓</a>
@@ -134,11 +167,36 @@ export default function Page() {
         </div>
       </header>
 
-      {/* ---------- 01 how a fill works ---------- */}
+      {/* ---------- layer stack ---------- */}
+      <section className="section" id="layers">
+        <div className="container">
+          <div className="panel">
+            <h2 className="sec-title">One strategy. Composable layers around it.</h2>
+            <p className="sec-intro">
+              Superposition is not a pricing curve — it wraps the one you ship. Each layer below
+              is independent, and the pricing math at the bottom is never modified.
+            </p>
+            <div className="layers-stack">
+              {LAYERS.map((l) => (
+                <div className={l.hi ? "layer hi" : "layer"} key={l.tag}>
+                  <div className="layer-tag">{l.tag}</div>
+                  <div className="layer-name">{l.name}</div>
+                  <div className="layer-body">{l.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------- 01 protocols / adapters ---------- */}
+      <BackedSection />
+
+      {/* ---------- 02 how a fill works ---------- */}
       <section className="section" id="how">
         <div className="container">
           <div className="panel">
-            <h2 className="sec-title">0x01 Three transactions deep, the capital never stops working.</h2>
+            <h2 className="sec-title">0x02 One transaction, and the capital never stops working.</h2>
             <p className="sec-intro">
               Every fill is one atomic transaction where the maker's capital resurfaces,
               changes hands, and dives back in.
@@ -161,37 +219,46 @@ export default function Page() {
         <div className="container">
           <div className="panel diagram-head">
             <div className="diagram-title">One fill, end to end — the Aave maker, on a Base fork</div>
-            <div className="diagram-sub">USDC comes in, wETH goes out. The dotted ring is the money path.</div>
+            <div className="diagram-sub">
+              S1–S3 run once, before any fill. Numbers 1–6 are the fill sequence — click one to replay it.
+            </div>
           </div>
           <FillDiagram />
         </div>
       </section>
 
-      {/* ---------- 02 the engine ---------- */}
-      <section className="section" id="engine">
+      {/* ---------- 02 uniswap hook ---------- */}
+      <section className="section" id="hook">
         <div className="container">
           <div className="panel">
-            <h2 className="sec-title">0x02 The pricing never lies.</h2>
+            <UniswapBadge />
+            <span className="kicker">SUPERPOSITION · UNISWAP V4</span>
+            <h2 className="sec-title">0x03 The Uniswap hook.</h2>
             <p className="sec-intro">
-              Three custom instructions appended to the SwapVM dispatch table. They run
-              identically in quote and execution — a quote that passes is a fill that
-              works.
+              Superposition also reaches into Uniswap v4. The <b>SuperpositionUniAdapter</b> turns
+              a v4 concentrated-liquidity hook into a yield venue the Aqua router can back a
+              position with — the same pull / withdraw / deposit surface, a different engine
+              underneath.
             </p>
-            <div className="engine">
-              {ENGINE.map((e) => (
-                <div className="engine-row" key={e.byte}>
-                  <div className="engine-byte">{e.byte}</div>
-                  <div className="engine-name">{e.name}</div>
-                  <div className="engine-desc">{e.desc}</div>
+            <div className="hook-grid">
+              {HOOK.map((c) => (
+                <div className="hook-card" key={c.k}>
+                  <div className="hook-k">{c.k}</div>
+                  <h3>{c.title}</h3>
+                  <p>{c.body}</p>
                 </div>
               ))}
             </div>
+            <a
+              className="hook-doc"
+              href="https://github.com/SolidityDrone/superposition-liquid/blob/main/docs/superposition-uni-adapter.md"
+              target="_blank"
+            >
+              Read the Superposition hook deep-dive ↗
+            </a>
           </div>
         </div>
       </section>
-
-      {/* ---------- 03 backed by ---------- */}
-      <BackedSection />
 
       {/* ---------- final ---------- */}
       <section className="final">

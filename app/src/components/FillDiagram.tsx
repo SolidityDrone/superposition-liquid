@@ -128,12 +128,12 @@ const STAGE_WINDOWS: Array<[number, number]> = [
 const PHASE_CUTS = [0.2897, 0.4877, 0.7599]; // usdc -> aUSDC -> aWETH -> WETH
 
 const LEGEND = [
-  { stage: 1, label: "Resolvers relay the tx → router" },
-  { stage: 2, label: "Taker pays USDC → router" },
-  { stage: 3, label: "Hooks: USDC deposited → aUSDC" },
-  { stage: 4, label: "aUSDC → maker (position grows)" },
-  { stage: 5, label: "Maker's aWETH → aave (JIT withdraw)" },
-  { stage: 6, label: "WETH → taker (delivered)" },
+  { n: 1, stage: 1, label: "Resolvers relay the tx → router" },
+  { n: 2, stage: 2, label: "Taker pays USDC → router" },
+  { n: 3, stage: 3, label: "Hooks: USDC deposited → aUSDC" },
+  { n: 4, stage: 4, label: "aUSDC → maker (position grows)" },
+  { n: 5, stage: 5, label: "Maker's aWETH → aave (JIT withdraw)" },
+  { n: 6, stage: 6, label: "WETH → taker (delivered)" },
 ];
 
 type Phase = "usdc" | "ausdc" | "aweth" | "eth";
@@ -347,11 +347,14 @@ export default function FillDiagram() {
             strokeDasharray="5 6"
             fill="none"
           />
-          <text x="152" y="170" fontSize="9.5" fontFamily="var(--mono)" fill="#566b80">
-            owns aWETH · aUSDC
+          <text x="152" y="154" fontSize="9.5" fontFamily="var(--mono)" fontWeight="700" fill="#4cc2ff">
+            SETUP · once, before any fill
           </text>
-          <text x="152" y="186" fontSize="9.5" fontFamily="var(--mono)" fill="#566b80">
-            approvals → adapter
+          <text x="152" y="172" fontSize="9.5" fontFamily="var(--mono)" fill="#566b80">
+            S1 · owns aWETH / aUSDC
+          </text>
+          <text x="152" y="188" fontSize="9.5" fontFamily="var(--mono)" fill="#566b80">
+            S2 · approvals → adapter
           </text>
           <path
             d="M 560 90 L 820 90 L 820 264"
@@ -361,7 +364,7 @@ export default function FillDiagram() {
             fill="none"
           />
           <text x="590" y="72" fontSize="9.5" fontFamily="var(--mono)" fill="#566b80">
-            ships the strategy · virtual balances
+            S3 · ships strategy · virtuals
           </text>
 
           {/* the chasing ghost — always upright, one body behind the token
@@ -418,6 +421,7 @@ export default function FillDiagram() {
             onClick={() => pick(l.stage)}
             aria-pressed={selected === l.stage}
           >
+            <span className="d-leg-n">{l.n}</span>
             {l.label}
           </button>
         ))}

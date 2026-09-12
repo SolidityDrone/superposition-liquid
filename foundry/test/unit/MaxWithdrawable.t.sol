@@ -27,7 +27,7 @@ contract MaxWithdrawableTest is Test {
         debtToken = new MockDebtToken();
         pool.registerAToken(address(weth), aToken);
         pool.registerDebtToken(address(weth), debtToken);
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
     }
 
     function test_zeroWhenNoPosition() public view {

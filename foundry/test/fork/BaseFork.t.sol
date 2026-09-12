@@ -44,7 +44,7 @@ contract BaseForkTest is Test {
         taker = makeAddr("taker");
 
         aqua = IAqua(BaseChain.AQUA);
-        adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+        adapter = new AaveV3Adapter(BaseChain.AAVE_POOL, address(0));
         makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(
             BaseChain.AQUA, weth, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)

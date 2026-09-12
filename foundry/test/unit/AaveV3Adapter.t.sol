@@ -28,7 +28,7 @@ contract AaveV3AdapterTest is Test {
         pool.registerAToken(address(weth), aToken);
         aTokenUsdc = new MockAToken();
         pool.registerAToken(address(usdc), aTokenUsdc);
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
     }
 
     function test_name_isAaveV3() public view {

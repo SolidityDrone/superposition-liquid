@@ -48,7 +48,7 @@ contract CapitalDrainE2ETest is Test {
         usdc = new MockToken("USDC", 6);
         pool.registerAToken(address(weth), aToken);
         pool.registerAToken(address(usdc), new MockAToken());
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
         MakerConfig makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(
             address(aqua), address(weth), makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)

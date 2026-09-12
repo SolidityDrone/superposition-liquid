@@ -34,8 +34,8 @@ contract MakerConfigTest is Test {
         weth = new MockToken("WETH", 18);
         pool.registerAToken(address(usdc), new MockAToken());
         pool.registerAToken(address(weth), new MockAToken());
-        adapterAave = new AaveV3Adapter(address(pool));
-        adapterAave2 = new AaveV3Adapter(address(pool));
+        adapterAave = new AaveV3Adapter(address(pool), address(0));
+        adapterAave2 = new AaveV3Adapter(address(pool), address(0));
     }
 
     function test_setSides_storesSidePerToken() public {

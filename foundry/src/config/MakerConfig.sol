@@ -26,13 +26,22 @@ struct SideConfig {
     bool autoManaged;
 }
 
+/// @notice Per-(maker, token) borrow mode. `enabled` lets the side be sourced by
+///         borrowing instead of held inventory; `collateral` is the token backing
+///         the borrow (address(0) = account-level, protocol decides); `maxDebt`
+///         is the risk capacitor — a hard cap on the side's debt in underlying
+///         units (0 = no extra cap beyond the protocol).
+struct BorrowConfig {
+    bool enabled;
+    address collateral;
+    uint256 maxDebt;
+}
+
 event SideSet(
-    address indexed maker,
-    address indexed underlying,
-    address indexed adapter,
-    AdapterKind kind,
-    bool autoManaged
+    address indexed maker, address indexed underlying, address indexed adapter, AdapterKind kind, bool autoManaged
 );
+
+event BorrowSet(address indexed maker, address indexed underlying, address collateral, uint256 maxDebt);
 
 /// @title MakerConfig
 /// @notice Per-maker side registry: (maker, underlying) -> adapter. One
@@ -47,8 +56,11 @@ event SideSet(
 contract MakerConfig {
     error InvalidSide(); // zero underlying/adapter or kind = None
     error AdapterInvalid(); // the address does not expose a non-empty name()
+    error LengthMismatch(); // underlyings[] and configs[] differ in length
+    error InvalidBorrow(); // zero underlying in a borrow config
 
     mapping(address maker => mapping(address underlying => SideConfig)) private _sides;
+    mapping(address maker => mapping(address underlying => BorrowConfig)) private _borrow;
 
     /// @notice Registers/overwrites the maker's managed sides. Each side maps
     ///         one underlying to one adapter (the protocol holding that side's
@@ -65,7 +77,9 @@ contract MakerConfig {
             // address succeeds with empty returndata; a contract without the
             // selector fails the call; both are invalid).
             (, bytes memory ret) = s.adapter.staticcall(abi.encodeWithSelector(ILendingAdapter.name.selector));
-            if (!_validName(ret)) revert AdapterInvalid();
+            if (!_validName(ret)) {
+                revert AdapterInvalid();
+            }
 
             _sides[msg.sender][s.underlying] =
                 SideConfig({ underlying: s.underlying, adapter: s.adapter, kind: s.kind, autoManaged: s.autoManaged });
@@ -80,21 +94,47 @@ contract MakerConfig {
         return _sides[maker][underlying];
     }
 
+    /// @notice Enables/disables borrow mode for the maker's sides. Writes only the
+    ///         caller's own config (msg.sender). `enabled = false` turns borrow off
+    ///         for that token; `collateral`/`maxDebt` are ignored then.
+    function setBorrowConfigs(address[] calldata underlyings, BorrowConfig[] calldata configs) external {
+        require(underlyings.length == configs.length, LengthMismatch());
+        for (uint256 i = 0; i < underlyings.length; i++) {
+            address underlying = underlyings[i];
+            require(underlying != address(0), InvalidBorrow());
+            _borrow[msg.sender][underlying] = configs[i];
+            emit BorrowSet(msg.sender, underlying, configs[i].collateral, configs[i].maxDebt);
+        }
+    }
+
+    /// @notice The maker's borrow config for `underlying` (all-zero = borrow disabled).
+    function borrowConfigOf(address maker, address underlying) external view returns (BorrowConfig memory) {
+        return _borrow[maker][underlying];
+    }
+
     /// @dev True if `ret` is a well-formed ABI-encoded non-empty string
     ///      ([0..32) offset = 0x20, [32..64) length, [64..) data).
     function _validName(bytes memory ret) private pure returns (bool) {
-        if (ret.length < 64) return false;
+        if (ret.length < 64) {
+            return false;
+        }
         uint256 offset;
         assembly {
             offset := mload(add(ret, 32))
         }
-        if (offset != 0x20) return false;
+        if (offset != 0x20) {
+            return false;
+        }
         uint256 slen;
         assembly {
             slen := mload(add(ret, 64))
         }
-        if (slen == 0) return false;
-        if (ret.length < 64 + ((slen + 31) / 32) * 32) return false;
+        if (slen == 0) {
+            return false;
+        }
+        if (ret.length < 64 + ((slen + 31) / 32) * 32) {
+            return false;
+        }
         return true;
     }
 }

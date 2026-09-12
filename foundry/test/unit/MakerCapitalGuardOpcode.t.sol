@@ -32,7 +32,7 @@ contract MakerCapitalGuardOpcodeTest is MakerCapitalGuardOpcode, Test {
         pool.registerAToken(address(usdc), new MockAToken());
         pool.registerDebtToken(address(weth), new MockDebtToken());
         pool.registerDebtToken(address(usdc), new MockDebtToken());
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
 

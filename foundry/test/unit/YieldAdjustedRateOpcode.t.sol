@@ -30,7 +30,7 @@ contract YieldAdjustedRateOpcodeTest is YieldAdjustedRateOpcode, Test {
         weth = new MockToken("WETH", 18);
         pool.registerAToken(address(usdc), new MockAToken());
         pool.registerAToken(address(weth), new MockAToken());
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
         maker = makeAddr("maker");
         taker = makeAddr("taker");
         _seedSupply(address(usdc), 1e6);

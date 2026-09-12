@@ -71,13 +71,13 @@ contract Demo is Script, StdCheats {
             // the adapter is the maker's own choice at config time: the demo
             // deploys a fresh AaveV3Adapter for the Aave sides (broadcast)
             vm.startBroadcast(deployerKey);
-            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL, address(makerConfig));
             vm.stopBroadcast();
             console2.log("== 0. reusing deployed stack + fresh Aave adapter ==");
         } catch {
             vm.startBroadcast(deployerKey);
             makerConfig = new MakerConfig();
-            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+            adapter = new AaveV3Adapter(BaseChain.AAVE_POOL, address(makerConfig));
             router = new SuperPositionVMRouter(BaseChain.AQUA, weth, msg.sender, "SuperPositionVMRouter", "1", address(makerConfig));
             vm.stopBroadcast();
         }

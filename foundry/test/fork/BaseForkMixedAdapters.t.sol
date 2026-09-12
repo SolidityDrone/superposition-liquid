@@ -49,7 +49,7 @@ contract BaseForkMixedAdaptersTest is Test {
         taker = makeAddr("taker");
 
         aqua = IAqua(BaseChain.AQUA);
-        aaveAdapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
+        aaveAdapter = new AaveV3Adapter(BaseChain.AAVE_POOL, address(0));
         morphoAdapter = new ERC4626Adapter(_single(morphoUsdcVault));
         makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(

@@ -92,7 +92,7 @@ contract DeployAndSetup is Script {
         console2.log("Router:", router);
 
         if (_eq(chain, "base")) {
-            address aave = address(new AaveV3Adapter(BaseChain.AAVE_POOL));
+            address aave = address(new AaveV3Adapter(BaseChain.AAVE_POOL, address(mc)));
             address erc = address(new ERC4626Adapter(
                 _arr2(BaseChain.MORPHO_USDC_VAULT, BaseChain.MORPHO_WETH_VAULT)
             ));

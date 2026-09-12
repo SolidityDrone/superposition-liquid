@@ -54,7 +54,7 @@ contract SuperPositionVMRouterTest is Test {
         pool.registerAToken(address(weth), aToken);
         aTokenUsdc = new MockAToken();
         pool.registerAToken(address(usdc), aTokenUsdc);
-        adapter = new AaveV3Adapter(address(pool));
+        adapter = new AaveV3Adapter(address(pool), address(0));
         makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(
             address(aqua), address(weth), makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)

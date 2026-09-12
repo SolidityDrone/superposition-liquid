@@ -20,11 +20,14 @@ contract ERC4626Adapter is ILendingAdapter {
     /// @dev underlying => yield vault
     mapping(address underlying => IERC4626 vault) public vaultOf;
 
-    constructor(address[] memory underlyings, address[] memory vaults) {
-        uint256 n = underlyings.length;
-        require(n == vaults.length && n > 0, "pairs length mismatch");
+    /// @param vaults The ERC-4626 vaults. The underlying of each vault is read from
+    ///        `vault.asset()`, so no underlyings need to be passed.
+    constructor(address[] memory vaults) {
+        uint256 n = vaults.length;
+        require(n > 0, "no vaults");
         for (uint256 i = 0; i < n; i++) {
-            vaultOf[underlyings[i]] = IERC4626(vaults[i]);
+            IERC4626 vault = IERC4626(vaults[i]);
+            vaultOf[vault.asset()] = vault;
         }
     }
 

@@ -42,13 +42,10 @@ contract BaseForkErc4626Test is Test {
         taker = makeAddr("taker");
         aqua = IAqua(BaseChain.AQUA);
 
-        address[] memory underlyings = new address[](2);
-        underlyings[0] = weth;
-        underlyings[1] = usdc;
         address[] memory vaults = new address[](2);
         vaults[0] = BaseChain.MORPHO_WETH_VAULT;
         vaults[1] = BaseChain.MORPHO_USDC_VAULT;
-        adapter = new ERC4626Adapter(underlyings, vaults);
+        adapter = new ERC4626Adapter(vaults);
         makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(
             BaseChain.AQUA, weth, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)

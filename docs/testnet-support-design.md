@@ -68,7 +68,6 @@ Both are the standard public test infrastructure for Ethereum and Base.
 | `ERC4626Adapter` (Morpho) | ❌ Permissionless deploy | ❌ Permissionless deploy |
 | `ERC4626Adapter` (Euler) | ❌ Permissionless deploy | ❌ Permissionless deploy |
 | `PendlePTAdapter` | ❌ Permissionless deploy | ❌ Permissionless deploy |
-| `WstETHAdapter` | ❌ No testnet wstETH | ❌ No testnet wstETH |
 
 **Summary per testnet:**
 
@@ -224,7 +223,6 @@ forge test --match-path "test/fork/*Sepolia*" -vvv
   can be picked up separately.
 - **Permissionless protocol testnets** (Morpho, Euler, Pendle) — these require
   deploying the protocol itself on testnet, which is a separate project.
-- **WstETH on testnet** — Lido has no official testnet deployment.
 
 ## Risks and mitigations
 

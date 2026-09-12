@@ -55,31 +55,21 @@ yet. When Stargate configures it:
   credit dries up (planner-driven), fills fail at quote time gracefully; the maker
   re-targets a healthier pool via the native Aqua `dock()` → `ship()` lifecycle.
 
-## 5. wstETH: the re-stake leg
-
-Documented in [pendle-adapter.md](pendle-adapter.md). The delivery leg (stETH→WETH via
-Curve) is shipped; the reverse leg (WETH→stETH→wstETH for `depositFor` on the real
-wrapper) needs the pool's payable ETH entry or a 1inch-routed leg, with `min_dy` bounded
-by the Chainlink-derived price instead of the current 0 (same pattern as the
-MakerCapitalGuardOpcode-style bounds from the reference price).
-
-## 6. Delta-neutral borrow profile (designed, SPEC B8.2)
+## 5. Delta-neutral borrow profile (designed, SPEC B8.2)
 
 The maker locks ETH as collateral, borrows the AMM's ETH inventory (net ETH exposure ≈
 0), repays debt in-kind on reverse fills, and swaps+repays via 1inch otherwise. Deferred
 because it requires health-factor management (the borrow-vs-collateral ratio drifts and
 needs monitoring/rebalancing) — an explicitly in-scope risk system, not just an adapter.
 
-## 7. Multi-asset adapter (one adapter, both sides yield)
+## 6. Multi-asset adapter (one adapter, both sides yield)
 
 Today a 2D strategy has one adapter: one side is yield-backed, the other is passthrough
 (revenue sits idle in the maker wallet). A composite adapter could route EACH side to its
-own protocol (e.g. ETH side in wstETH via the swap leg, USDC side in Aave) — the interface
+own protocol (e.g. ETH side in Aave, USDC side in Morpho) — the interface
 already takes `underlying` per call, so the composition is a dispatcher over a per-token
-config. Also enables the wstETH maker to auto-deploy the USDC revenue into Aave instead
-of idling it.
-
-## 8. Pendle polish
+config. 
+## 7. Pendle polish
 
 - **Re-lock cadence**: the maker can `dock()` and re-`ship()` periodically to relock the
   fixed yield at the current implied rate — native Aqua lifecycle, zero extra code, worth

@@ -80,11 +80,9 @@ contract MaxWithdrawableErc4626Test is Test {
     function setUp() public {
         weth = new MockToken("WETH", 18);
         vault = new MockMetaMorphoVault(IERC20(address(weth)));
-        address[] memory u = new address[](1);
         address[] memory v = new address[](1);
-        u[0] = address(weth);
         v[0] = address(vault);
-        adapter = new ERC4626Adapter(u, v);
+        adapter = new ERC4626Adapter(v);
     }
 
     /// the vault's own maxWithdraw is the simulated withdrawal limit

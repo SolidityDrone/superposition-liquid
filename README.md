@@ -103,7 +103,6 @@ struct SideConfig {
 | `ERC4626Adapter` | any ERC-4626 vault (Morpho, Euler, …) | vault yield |
 | `StargateAdapter` | Stargate V2 pool LP, staked | bridge reward stream |
 | `PendlePTAdapter` | Pendle PT (expired = 1:1 · active = fixed income) | **fixed APY** |
-| `WstETHAdapter` | Lido `wstETH` + a Curve swap leg | staking APY |
 | `SuperpositionUniAdapter` | [Superposition](docs/superposition-uni-adapter.md) v4 hook buckets (USDC/USDT, ERC-1155 LP) | Aave yield + v4 fees |
 
 The adapters are **pull-less**: the router executes each adapter's `pullPlan` (token, exact
@@ -166,14 +165,17 @@ design) and Pendle's callback conventions.
 | Base | 8453 | `script/BaseChain.s.sol` — `https://mainnet.base.org` |
 | Ethereum | 1 | addresses inline in `script/DeployAndSetup.s.sol` — `https://ethereum-rpc.publicnode.com` |
 
-| Adapter | Base | Ethereum |
-|---|---|---|
-| `AaveV3Adapter` | ✅ | ❌ |
-| `ERC4626Adapter` (Morpho / Euler / Aave wrappers) | ✅ | ❌ |
-| `StargateAdapter` | ✅ | ❌ |
-| `PendlePTAdapter` | ❌ | ✅ (PT-wstETH, active) |
-| `SuperpositionUniAdapter` | ❌ | ✅ (USDC/USDT on the Superposition v4 hook) |
-| `WstETHAdapter` (`adapter-in-out-config`) | ❌ | ✅ |
+Adapters are **chain-agnostic**: they take the protocol's pool/vault addresses, so `✅` below
+means the protocol is live on that chain and the adapter can target it. The fork-proven chains
+are listed in the Tests section.
+
+| Adapter | Protocol | Base | Ethereum |
+|---|---|---|---|
+| `AaveV3Adapter` | Aave v3 | ✅ | ✅ |
+| `ERC4626Adapter` | Morpho / Euler v2 / Aave wrappers | ✅ | ✅ |
+| `StargateAdapter` | Stargate v2 | ✅ | ✅ |
+| `PendlePTAdapter` | Pendle | ✅ | ✅ |
+| `SuperpositionUniAdapter` | Superposition v4 hook | ❌ | ✅ |
 
 **Testnet support**
 

@@ -17,7 +17,6 @@ abstract contract ERC4626AdapterTest is Test {
     MockERC4626Vault internal vault;
     MockToken internal weth;
     MockToken internal usdc;
-    MockToken internal usdcVaultToken;
 
     address internal maker = makeAddr("maker");
     address internal recipient = makeAddr("recipient");
@@ -30,18 +29,13 @@ abstract contract ERC4626AdapterTest is Test {
         weth = new MockToken("WETH", 18);
         usdc = new MockToken("USDC", 6);
         vault = _createVault(weth);
-        (address[] memory underlyings, address[] memory vaults) = _pairs();
-        adapter = new ERC4626Adapter(underlyings, vaults);
+        adapter = new ERC4626Adapter(_vaults());
     }
 
-    function _pairs() internal returns (address[] memory underlyings, address[] memory vaults) {
-        usdcVaultToken = new MockToken("USDC", 6);
-        underlyings = new address[](2);
+    function _vaults() internal returns (address[] memory vaults) {
         vaults = new address[](2);
-        underlyings[0] = address(weth);
         vaults[0] = address(vault);
-        underlyings[1] = address(usdc);
-        vaults[1] = address(_createVault(usdcVaultToken));
+        vaults[1] = address(_createVault(usdc));
     }
 
     function _seed(address underlying, uint256 amount) internal returns (MockERC4626Vault v) {

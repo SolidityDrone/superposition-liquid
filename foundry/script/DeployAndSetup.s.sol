@@ -94,7 +94,6 @@ contract DeployAndSetup is Script {
         if (_eq(chain, "base")) {
             address aave = address(new AaveV3Adapter(BaseChain.AAVE_POOL));
             address erc = address(new ERC4626Adapter(
-                _arr2(BaseChain.USDC, BaseChain.WETH),
                 _arr2(BaseChain.MORPHO_USDC_VAULT, BaseChain.MORPHO_WETH_VAULT)
             ));
             address stg = address(new StargateAdapter(BASE_STARGATE_POOL, BASE_STARGATE_STAKING, BaseChain.WETH));

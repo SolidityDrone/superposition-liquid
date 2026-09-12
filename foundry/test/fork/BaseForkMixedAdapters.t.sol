@@ -50,9 +50,7 @@ contract BaseForkMixedAdaptersTest is Test {
 
         aqua = IAqua(BaseChain.AQUA);
         aaveAdapter = new AaveV3Adapter(BaseChain.AAVE_POOL);
-        morphoAdapter = new ERC4626Adapter(
-            _single(usdc), _single(morphoUsdcVault)
-        );
+        morphoAdapter = new ERC4626Adapter(_single(morphoUsdcVault));
         makerConfig = new MakerConfig();
         router = new SuperPositionVMRouter(
             BaseChain.AQUA, weth, makeAddr("owner"), "SuperPositionVMRouter", "1", address(makerConfig)

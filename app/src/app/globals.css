@@ -812,3 +812,8 @@ input[type="checkbox"] { accent-color: var(--accent); width:15px; height:15px; c
 .secnav-label { text-shadow: 0 1px 10px rgba(0,0,0,.9); }
 .secnav-dot { background: #4a6076; }
 .secnav-item.active .secnav-dot { background: var(--accent); }
+
+/* bigger section rail labels on the landing */
+.secnav { gap: 16px; padding: 30px 26px; }
+.secnav-label { font-size: 22px; font-family: var(--sans); font-weight: 600; letter-spacing: -.01em; }
+.secnav-dot { width: 9px; height: 9px; }

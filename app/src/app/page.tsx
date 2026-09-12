@@ -1,4 +1,5 @@
 import TileBackground from "@/components/TileBackground";
+import SectionNav from "@/components/SectionNav";
 import FillDiagram from "@/components/FillDiagram";
 import CodeSnippet from "@/components/CodeSnippet";
 import BackedSection from "@/components/BackedSection";
@@ -125,9 +126,8 @@ export default function Page() {
             </div>
           </div>
           <div className="nav-right">
-            <a className="nav-hide" href="#backed">Adapters</a>
-            <a className="nav-hide" href="#how">How it works</a>
-            <a className="nav-hide" href="#hook">Uniswap hook</a>
+            <a className="nav-hide" href="/">Home</a>
+            <a className="nav-mono" href="/app">console ↗</a>
             <a className="nav-mono" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
               github ↗
             </a>
@@ -136,7 +136,8 @@ export default function Page() {
       </nav>
 
       {/* ---------- hero ---------- */}
-      <header className="hero">
+      <SectionNav />
+      <header className="hero" id="top">
         <TileBackground />
         <div className="hero-scrim" aria-hidden />
         <div className="container hero-grid">
@@ -155,7 +156,8 @@ export default function Page() {
               world it reads as a plain ETH/USDC pool.
             </p>
             <div className="cta-row">
-              <a className="btn btn-primary" href="#how">How it works ↓</a>
+              <a className="btn btn-primary" href="/app">Open maker console</a>
+              <a className="btn btn-ghost" href="#how">How it works ↓</a>
               <a className="btn btn-ghost" href="https://github.com/SolidityDrone/superposition-liquid" target="_blank">
                 Source
               </a>
@@ -261,7 +263,7 @@ export default function Page() {
       </section>
 
       {/* ---------- final ---------- */}
-      <section className="final">
+      <section className="final" id="final">
         <div className="container">
           <div className="panel">
             <h2>

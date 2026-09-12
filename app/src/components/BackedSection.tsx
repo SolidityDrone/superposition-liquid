@@ -168,6 +168,31 @@ export default function BackedSection() {
                 </div>
               ))}
             </div>
+            <div
+              style={{
+                marginTop: 18,
+                padding: "16px 18px",
+                border: "1px solid var(--border)",
+                borderRadius: 16,
+                background: "var(--bg-raise)",
+                display: "flex",
+                gap: 16,
+                flexWrap: "wrap",
+                alignItems: "baseline",
+              }}
+            >
+              <span className="kicker" style={{ color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".12em", fontSize: 12 }}>
+                Borrow mode
+              </span>
+              <p style={{ margin: 0, color: "var(--text-mid)", maxWidth: 760 }}>
+                An adapter is also a <b>source of capital</b>: with{" "}
+                <code>MakerConfig.BorrowConfig</code> (<code>enabled</code>, <code>collateral</code>,{" "}
+                <code>maxDebt</code>) a maker can quote an asset they <b>don&apos;t hold</b> — borrowed
+                against yield-bearing collateral, and the matching in-fill repays the debt first. The
+                configured collateral + risk capacitor are the soft isolation.{" "}
+                <a href="/app" style={{ color: "var(--accent)" }}>Configure it in the console →</a>
+              </p>
+            </div>
           </div>
         </div>
       </section>

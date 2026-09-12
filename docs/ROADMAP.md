@@ -55,12 +55,21 @@ yet. When Stargate configures it:
   credit dries up (planner-driven), fills fail at quote time gracefully; the maker
   re-targets a healthier pool via the native Aqua `dock()` → `ship()` lifecycle.
 
-## 5. Delta-neutral borrow profile (designed, SPEC B8.2)
+## 5. Delta-neutral borrow profile (SPEC B8.2)
 
-The maker locks ETH as collateral, borrows the AMM's ETH inventory (net ETH exposure ≈
-0), repays debt in-kind on reverse fills, and swaps+repays via 1inch otherwise. Deferred
-because it requires health-factor management (the borrow-vs-collateral ratio drifts and
-needs monitoring/rebalancing) — an explicitly in-scope risk system, not just an adapter.
+**Borrow mode is implemented** as a per-token option of `AaveV3Adapter`
+(`MakerConfig.BorrowConfig`: `enabled`, `collateral`, `maxDebt`; see
+`docs/borrow-adapter.md`). A side can be sourced by borrowing against
+yield-bearing collateral, and the matching in-fill repays the debt first. The
+router, the capital guard and the yield opcode are unchanged.
+
+Still deferred: the full **delta-neutral** profile. The maker locks ETH as
+collateral, borrows the AMM's ETH inventory (net ETH exposure ≈ 0), repays
+debt in-kind on reverse fills, and swaps+repays via 1inch otherwise. It needs
+health-factor management (the borrow-vs-collateral ratio drifts and needs
+monitoring/rebalancing) — an explicitly in-scope risk system on top of the
+borrow mode above, not just an adapter. Morpho Blue borrow (per-market, natural
+isolation) is the next venue.
 
 ## 6. Multi-asset adapter (one adapter, both sides yield)
 

@@ -11,6 +11,15 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
 </p>
 
+> [!IMPORTANT]
+> ### 👀 Uniswap v4 judges — the hook is a **separate repository**
+> **[github.com/SolidityDrone/superposition-hook-uni-v4](https://github.com/SolidityDrone/superposition-hook-uni-v4/)**
+>
+> The **Uniswap v4 concentrated-liquidity hook** (tick ranges as ERC-1155 buckets, Aave-backed
+> ERC-4626 capital, one-sided limit orders) lives in that repo. **This** repo is the **1inch
+> Aqua / SwapVM meta-layer that wraps it** — capital adapters, meta-opcodes, JIT yield **and
+> borrowing**. Read the hook first; everything below is how it plugs into Aqua.
+
 **A meta-layer for 1inch Aqua / SwapVM.** Superposition adds two composable layers on top of
 *any* SwapVM strategy — **capital adapters** (JIT withdraw/deposit hooks) and **meta-opcodes**
 (oracle guards, yield-rate scaling, capital checks). It ships no pricing curve: it wraps the
@@ -35,7 +44,37 @@ The maker wallet holds tokens only for the duration of one transaction. Idle bal
 **zero**, and 100% of the capital earns the protocol's yield **on top of swap fees** — same
 capital, two income streams.
 
+## The three layers — 1inch ⟷ Uniswap hook ⟷ yield & borrowing
+
+Superposition is the **glue** between three things that normally don't compose:
+
+```mermaid
+flowchart LR
+    T[Taker / 1inch resolver] -->|swap| AQ[1inch Aqua · SwapVM]
+    AQ -->|"meta-opcodes 34/35"| R[SuperPositionVMRouter]
+    R -->|"pullPlan / withdraw"| H[SuperpositionUniAdapter]
+    H -->|"ERC-1155 buckets"| U[Uniswap v4 hook]
+    H -->|"ERC-4626 / aToken"| Y[(Yield · Aave · Morpho · …)]
+    R -. "BorrowConfig" .-> B[(Borrow vs. collateral)]
+    Y -. "collateral" .-> B
+```
+
+| Layer | Who owns it | What Superposition adds |
+|---|---|---|
+| **1inch Aqua / SwapVM** | the program + execution | two **meta-opcodes** (34 yield-rate scaling, 35 capital guard) appended to *any* shipped program |
+| **Uniswap v4 hook** | the pricing/liquidity engine | `SuperpositionUniAdapter` exposes the hook's tick-range **ERC-1155 buckets** as a venue the router can pull from |
+| **Yield & borrowing** | the capital venue | capital rests in ERC-4626 / Aave between fills; **borrowing lets a maker quote an asset they don't hold** |
+
+**Why borrowing matters.** A maker's quotable size is normally capped by the inventory they hold.
+With `MakerConfig.BorrowConfig`, a side can be *sourced by debt*: the maker quotes an asset they
+**don't own**, borrowed against yield-bearing collateral that keeps earning while it is pledged.
+The matching in-fill repays the debt first. So the same collateral backs **both** the position and
+the borrowed side — **borrowing directly increases the surface of liquidity a maker can provide**,
+without a second unit of capital. (The configured collateral + the `maxDebt` risk capacitor are the
+soft isolation; the `MakerCapitalGuard` opcode still rejects any fill the *real* capital can't cover.)
+
 ## How a fill works
+
 
 ```mermaid
 sequenceDiagram
@@ -307,18 +346,57 @@ Testnet scarcity: Aave Sepolia's stable reserves (USDC/USDT/DAI) are **at their 
 withdraw, JIT cycling, LP shares) but yield accrues only on mainnet. Sepolia USDC/USDT are
 mintable via the Aave faucet (`mint(token,to,amount)`).
 
-**Verified without an Etherscan key.** All Sepolia contracts are verified on **Sourcify**
-(`exact_match`), which is keyless and also propagates to Etherscan / Routescan / Blockscout:
+**Verified keyless on Sourcify (`exact_match`).** All Sepolia contracts are verified on
+**[Sourcify](https://sourcify.dev)** with no API key. Note: **Etherscan does not read Sourcify**
+(it needs its own API key), so an Etherscan "Contract" tab may show unverified — trust the
+Sourcify links below (`exact_match` = creation + runtime). Routescan / Blockscout do index Sourcify.
 
 ```
 forge verify-contract <address> <path:Contract> --chain 11155111 \
   --verifier sourcify --verifier-url https://sourcify.dev/server/ \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
   --constructor-args $(cast abi-encode "constructor(...)" ...)
 ```
 
-Verified: `MakerConfig`, `SuperPositionVMRouter` (SepoliaRouter), `AaveV3Adapter`,
-`ERC4626Adapter`, the two ERC-4626 vaults, `SuperpositionHook`, `SuperpositionUniAdapter`,
-`SepoliaFaucetBatch`, `OrderBuilder`.
+Verified (11/11): `MakerConfig`, `SuperPositionVMRouter`, `AaveV3Adapter`, `ERC4626Adapter`, the
+two ERC-4626 vaults, `SuperpositionHook`, `SuperpositionUniAdapter`, `SepoliaFaucetBatch`,
+`OrderBuilder`, `HookLpHelper`.
+
+### 📜 Live make ⇄ take on Ethereum Sepolia
+
+A real maker order was shipped on Aqua and taken by a **separate taker** — signature-less
+(`useAquaInsteadOfSignature`), capital JIT-cycled through the hook:
+
+| Step | Transaction |
+|---|---|
+| maker · `MakerConfig.setSides` → `SuperpositionUniAdapter` | [`0x011778…78fce`](https://sepolia.etherscan.io/tx/0x0117782532ba14d171d626eb8dd435d37e441340a86783ac1ea259e107e78fce) |
+| maker · `Aqua.ship(order)` | [`0xfe2a1b…9eb39`](https://sepolia.etherscan.io/tx/0xfe2a1bc60dcae661091987be8ce240fcc44d8f629529a0a1af7527e283b9eb39) |
+| taker · Aave faucet `mint(USDC)` | [`0xa69f1c…f519b`](https://sepolia.etherscan.io/tx/0xa69f1c4d8b40de1b0782ed5fbe0bdda2c662ef8ddf8667a38804779ac4f7519b) |
+| **take** · taker `router.swap(order)` — **100 USDC → 98.706 USDT** | [`0x2bb1e6…c36d01`](https://sepolia.etherscan.io/tx/0x2bb1e63c01feb397ddd0b3e6f09cb500c4ac00f5e9d796fdfd46738b61c36d01) |
+
+Reproduce — `forge script script/sepolia/ShipSepolia.s.sol` (make) then
+`script/sepolia/TakeSepolia.s.sol` (take), each with its own keystore.
+
+### ✅ Verified contracts — Sourcify `exact_match` (keyless)
+
+Every address below is **`exact_match`** on Sourcify (creation + runtime). Click **Sourcify** to
+open the lookup; the **explorer** link is only for address/tx context (Etherscan does not read
+Sourcify without its own API key).
+
+| Contract | Sourcify (exact_match) | Sepolia explorer |
+|---|---|---|
+| `MakerConfig` | [lookup](https://sourcify.dev/#/lookup/0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926) | [address](https://sepolia.etherscan.io/address/0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926) |
+| `SuperPositionVMRouter` | [lookup](https://sourcify.dev/#/lookup/0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC) | [address](https://sepolia.etherscan.io/address/0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC) |
+| `AaveV3Adapter` | [lookup](https://sourcify.dev/#/lookup/0xd915d3Db7f18f75D67c63B3Aa00872fbCE793c57) | [address](https://sepolia.etherscan.io/address/0xd915d3Db7f18f75D67c63B3Aa00872fbCE793c57) |
+| `ERC4626Adapter` | [lookup](https://sourcify.dev/#/lookup/0xb1B9955600DfAF8987da8c9D0A37F2d2ee4B8752) | [address](https://sepolia.etherscan.io/address/0xb1B9955600DfAF8987da8c9D0A37F2d2ee4B8752) |
+| USDC vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x4F32F6bE82407E7956E5752672677542379a1ec8) | [address](https://sepolia.etherscan.io/address/0x4F32F6bE82407E7956E5752672677542379a1ec8) |
+| USDT vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D) | [address](https://sepolia.etherscan.io/address/0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D) |
+| `SuperpositionHook` (v4) | [lookup](https://sourcify.dev/#/lookup/0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0) | [address](https://sepolia.etherscan.io/address/0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0) |
+| `SuperpositionUniAdapter` | [lookup](https://sourcify.dev/#/lookup/0x1be3291f7Ef08e56f0141007F49846fB07794C8B) | [address](https://sepolia.etherscan.io/address/0x1be3291f7Ef08e56f0141007F49846fB07794C8B) |
+| `SepoliaFaucetBatch` | [lookup](https://sourcify.dev/#/lookup/0xE05742c33bf6b347919B26934fa1Df9eF056F156) | [address](https://sepolia.etherscan.io/address/0xE05742c33bf6b347919B26934fa1Df9eF056F156) |
+| `OrderBuilder` | [lookup](https://sourcify.dev/#/lookup/0x593f18800df097f059270357948F24bC677f50c5) | [address](https://sepolia.etherscan.io/address/0x593f18800df097f059270357948F24bC677f50c5) |
+| `HookLpHelper` | [lookup](https://sourcify.dev/#/lookup/0x7686615960Ff41551165a27fE63b15917830E04D) | [address](https://sepolia.etherscan.io/address/0x7686615960Ff41551165a27fE63b15917830E04D) |
+
 
 ### Vercel (frontend)
 
@@ -335,13 +413,13 @@ missing key. Node 20.9+ (Vercel default 22 is fine).
 
 ### The Graph (composable & standardized data)
 
-The console ships a live **Yield leaderboard** backed by the **Messari Standardized Lending
+The console ships a live **Lending intelligence** panel backed by the **Messari Standardized Lending
 Subgraphs** — one GraphQL query across **Aave v3 · Compound v3 · Morpho · Spark** — plus a
 **SuperPosition Subgraph** (Subgraph Studio) that indexes the router fills, per-token adapter
-config, borrow config and the **ERC-4626** vault flows, and a **Subgraph MCP** composing both.
+config, borrow config and the **ERC-4626** vault flows.
 See [`docs/thegraph.md`](docs/thegraph.md).
 
-Env: `NEXT_PUBLIC_THEGRAPH_API_KEY` (app), `THEGRAPH_API_KEY` + `SUPERPOSITION_SUBGRAPH_ID` (MCP).
+Env: `NEXT_PUBLIC_THEGRAPH_API_KEY` (app).
 
 ## Repository layout
 
@@ -371,6 +449,13 @@ Dependency pins: `1inch/swap-vm` **v1.0.2**, `1inch/aqua` **v1.0.0**, `openzeppe
 `@1inch/solidity-utils` **6.9.7**, Solidity **0.8.30**.
 
 ## Scope
+
+> [!NOTE]
+> **Custom curves and strategies are explicitly out of scope.** Superposition ships **no curve of
+> its own**: the meta-opcodes are **appendable to any SwapVM program** — xyk, concentrated,
+> flat-price, RFQ, or a bespoke formula. Whatever you ship on Aqua stays yours; Superposition only
+> changes *where the capital rests* (yield / ERC-4626 / hook buckets / borrowing) and *how it is
+> protected* (the capital guard). The layer is deliberately **curve-agnostic** — that is the feature.
 
 Superposition deliberately does **not**:
 

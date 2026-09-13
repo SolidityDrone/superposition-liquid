@@ -2,7 +2,7 @@
 
 This is the data side of Superposition: it turns the protocol's JIT capital movement into a
 **standardized, composable** data product, so one query pattern spans many protocols and one
-subgraph is reused across the app and the MCP.
+subgraph is reused across the app and the standardized queries.
 
 ## What we composed
 
@@ -10,7 +10,6 @@ subgraph is reused across the app and the MCP.
 |---|---|---|
 | **Messari Standardized Lending Subgraphs** | one schema across **Aave v3 · Compound v3 · Morpho · Spark** | the *same GraphQL query* returns supply APY per protocol — one pattern, many protocols |
 | **SuperPosition Subgraph** (Studio) | our router fills, per-token adapter config, borrow config, ERC-4626 vault flows, v4-hook bucket flows | the protocol's own data, on the same event model for every adapter |
-| **Subgraph MCP** | `lending_yields` + `superposition_flows` tools | agents can run cross-protocol analysis over **both** the standardized schema and our protocol |
 
 The leverage: Superposition already abstracts *many yield protocols behind one adapter
 interface*. The data layer mirrors that — a single standardized query ranks venues, and a
@@ -32,7 +31,7 @@ query LendingMarkets($token: String!) {
 ```
 
 `fetchYields(token)` fans the query out across the four deployments and sorts by supply rate.
-The console's **Yield leaderboard** panel shows the result live; a maker can point its USDC/ETH
+The console's **Lending intelligence** panel shows the result live; a maker can point its USDC/ETH
 side at whichever venue tops the list.
 
 ## One pipeline, reused: ERC-4626 flows
@@ -63,30 +62,14 @@ Then set:
 
 | Env var | Where | Used by |
 |---|---|---|
-| `NEXT_PUBLIC_THEGRAPH_API_KEY` | `app/.env` / Vercel | the leaderboard (Graph gateway) |
-| `THEGRAPH_API_KEY` | shell (MCP) | the MCP server |
-| `SUPERPOSITION_SUBGRAPH_ID` | shell (MCP) | the `superposition_flows` tool |
-
-## Run the MCP
-
-```bash
-cd mcp
-npm install
-THEGRAPH_API_KEY=... SUPERPOSITION_SUBGRAPH_ID=... node server.mjs
-```
-
-Tools exposed:
-
-- `lending_yields({ token, first })` — standardized cross-protocol supply APY.
-- `superposition_flows({ maker?, first? })` — our fills (and, by extension, vault flows).
+| `NEXT_PUBLIC_THEGRAPH_API_KEY` | `app/.env` / Vercel | the lending-intelligence panel (Graph gateway) |
 
 ## Files
 
 ```
 subgraph/            schema.graphql · subgraph.yaml · networks.json · abis/ · src/ (AssemblyScript)
-mcp/server.mjs       Subgraph MCP (stdio) composing the standardized + our subgraph
 app/src/lib/thegraph.ts        the standardized lending client (one query, four protocols)
-app/src/components/YieldLeaderboard.tsx   live leaderboard panel in the console
+app/src/components/LendingIntel.tsx   live lending-intelligence panel in the console
 ```
 
 Indexed data sources on Sepolia (`chains.sepolia`, startBlock `11686230`): router `Swapped`,

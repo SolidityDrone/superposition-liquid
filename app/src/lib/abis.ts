@@ -131,3 +131,10 @@ export const aquaAbi = parseAbi([
 export const orderBuilderAbi = parseAbi([
   "function build(address maker, address router, address tokenIn, address tokenOut, address guardToken, uint32 feeBps, uint256 rateIn, uint256 rateOut) pure returns (bytes)",
 ]);
+
+// SwapVM (the SuperPosition router IS a SwapVM): take a shipped order.
+export const swapVmAbi = parseAbi([
+  "function quote((address maker, uint256 traits, bytes data) order, address tokenIn, address tokenOut, uint256 amount, bytes takerTraitsAndData) view returns (uint256 amountIn, uint256 amountOut, bytes32 orderHash)",
+  "function swap((address maker, uint256 traits, bytes data) order, address tokenIn, address tokenOut, uint256 amount, bytes takerTraitsAndData) returns (uint256 amountIn, uint256 amountOut, bytes32 orderHash)",
+]);
+

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAccount, usePublicClient, useReadContracts, useWriteContract } from "wagmi";
-import { formatUnits, parseUnits, maxUint256, type Address } from "viem";
+import { formatUnits, parseUnits, maxUint256, decodeAbiParameters, type Address } from "viem";
 
 import TileBackground from "@/components/TileBackground";
 import { TokenIcon, ProtocolIcon, TokenLabel, InfoIcon } from "@/components/icons";
@@ -12,10 +12,14 @@ import SuperpositionSubgraph from "@/components/SuperpositionSubgraph";
 import PoolCurve from "@/components/PoolCurve";
 import { OneinchMono, Uniswap } from "react-web3-icons/dex";
 import { STACK, TOKENS, ADAPTERS, SEPOLIA_CHAIN_ID, AQUA, EXAMPLE_POOL_ID, explorerAddress, explorerTx, type TokenDef } from "@/lib/sepolia";
-import { erc20Abi, makerConfigAbi, aavePoolAbi, aaveAdapterAbi, aaveDataProviderAbi, erc4626Abi, superpositionAdapterAbi, superpositionHookAbi, v4StateViewAbi, aquaAbi, orderBuilderAbi, hookLpHelperAbi, erc1155Abi } from "@/lib/abis";
+import { erc20Abi, makerConfigAbi, aavePoolAbi, aaveAdapterAbi, aaveDataProviderAbi, erc4626Abi, superpositionAdapterAbi, superpositionHookAbi, v4StateViewAbi, aquaAbi, orderBuilderAbi, swapVmAbi, hookLpHelperAbi, erc1155Abi } from "@/lib/abis";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 const MAX = 2n ** 256n - 1n;
+/// v4 orders the pool by address: currency0 = lower address (USDT on Base Sepolia, USDC on Eth Sepolia).
+const HOOK_C = [TOKENS[0], TOKENS[1]].sort((a, b) => (a.address.toLowerCase() < b.address.toLowerCase() ? -1 : 1)) as [TokenDef, TokenDef];
+/// TakerTraits: slicesIndexes(20 bytes, all zero) + flags(2 bytes) = isExactIn | useTransferFromAndAquaPush.
+const TAKER_TRAITS = ("0x" + "00".repeat(20) + "0041") as `0x${string}`;
 const pick = (arr: unknown, i: number): unknown => (arr as { result?: unknown }[] | undefined)?.[i]?.result;
 function field<T = unknown>(v: unknown, i: number, name: string): T | undefined {
   if (v === undefined || v === null) return undefined;
@@ -54,6 +58,7 @@ export default function ConsolePage() {
   const [shipInAmt, setShipInAmt] = useState("100");
   const [shipOutAmt, setShipOutAmt] = useState("100");
   const [shipFee, setShipFee] = useState("3000000");
+  const [takeAmt, setTakeAmt] = useState("1");
   const [depProto, setDepProto] = useState("aave");
   const [depToken, setDepToken] = useState<Address>((TOKENS.find((t) => t.symbol === "LINK") ?? TOKENS[0]).address);
   const [depAmt, setDepAmt] = useState("100");
@@ -279,10 +284,50 @@ export default function ConsolePage() {
       setShipOpen(false);
     });
   }
+  /// Take the shipped order AGAINST YOURSELF (same wallet is maker + taker) to prove it fills.
+  /// Rebuilds the exact same order (same OrderBuilder inputs) and calls the SwapVM `swap`.
+  async function testFill() {
+    const ti = TOKENS.find((t) => t.address === shipIn)!;
+    const to = TOKENS.find((t) => t.address === shipOut)!;
+    if (!publicClient || !me) return;
+    await run(`test fill ${ti.symbol}→${to.symbol}`, async () => {
+      const rate = 10n ** 18n;
+      const orderBytes = (await publicClient.readContract({
+        address: STACK.orderBuilder,
+        abi: orderBuilderAbi,
+        functionName: "build",
+        args: [me, STACK.router, ti.address, to.address, to.address, Number(shipFee), rate, rate],
+      })) as `0x${string}`;
+      const dec = decodeAbiParameters(
+        [{ type: "tuple", components: [{ type: "address" }, { type: "uint256" }, { type: "bytes" }] }],
+        orderBytes,
+      )[0] as readonly [Address, bigint, `0x${string}`];
+      const order = { maker: dec[0], traits: dec[1], data: dec[2] };
+      const amt = parseUnits(takeAmt || "0", ti.decimals);
+      // quote() first — it is a fillability oracle (same runLoop as swap)
+      const q = (await publicClient.readContract({
+        address: STACK.router,
+        abi: swapVmAbi,
+        functionName: "quote",
+        args: [order, ti.address, to.address, amt, TAKER_TRAITS],
+      })) as readonly [bigint, bigint, `0x${string}`];
+      setInfo(`quote: ${fmt(amt, ti.decimals)} ${ti.symbol} → ${fmt(q[1], to.decimals)} ${to.symbol}`);
+      const allow = (await publicClient.readContract({
+        address: ti.address, abi: erc20Abi, functionName: "allowance", args: [me, STACK.router],
+      })) as bigint;
+      if (allow < amt) await send({ address: ti.address, abi: erc20Abi, functionName: "approve", args: [STACK.router, maxUint256] });
+      await send({
+        address: STACK.router,
+        abi: swapVmAbi,
+        functionName: "swap",
+        args: [order, ti.address, to.address, amt, TAKER_TRAITS],
+      });
+    });
+  }
   /// One tx: provide both stables in the selected range via the HookLpHelper (atomic).
   async function hookDepositBoth() {
-    const t0 = TOKENS[0];
-    const t1 = TOKENS[1];
+    const t0 = HOOK_C[0]; // currency0 (lower address)
+    const t1 = HOOK_C[1]; // currency1
     const range = RANGE_PRESETS.find((r) => r.id === rangeId) ?? RANGE_PRESETS[0];
     const a0 = parseUnits(lp0 || "0", t0.decimals);
     const a1 = parseUnits(lp1 || "0", t1.decimals);
@@ -666,7 +711,7 @@ export default function ConsolePage() {
           <div className="pnl">
             <div className="pnl-head"><div className="pnl-title rose">Uni V4 Hook — Example Pool</div>{infoDot("hook")}</div>
             <div className="pool-pair">
-              <span className="pair"><TokenLabel symbol="USDC" size={18} /> / <TokenLabel symbol="USDT" size={18} /></span>
+              <span className="pair"><TokenLabel symbol={HOOK_C[0].symbol} size={18} /> / <TokenLabel symbol={HOOK_C[1].symbol} size={18} /></span>
               <span className="pill on">fee 0.01%</span>
               <span className="pill on">tick spacing 1</span>
               <span className={`pill ${initialized === true ? "on" : initialized === false ? "off" : ""}`}>{initialized === undefined ? "…" : initialized ? "initialized" : "not initialized"}</span>
@@ -674,11 +719,11 @@ export default function ConsolePage() {
             </div>
 
             <div className="kpis">
-              <div className="kpi"><div className="k">Idle · in vaults</div><div className="v">{fmt(idle0, 6)}</div><div className="sub">USDC · {fmt(idle1, 6)} USDT</div></div>
-              <div className="kpi"><div className="k">Pool claim</div><div className="v">{fmt(poolClaim0, 6)}</div><div className="sub">USDC · {fmt(poolClaim1, 6)} USDT</div></div>
+              <div className="kpi"><div className="k">Idle · in vaults</div><div className="v">{fmt(idle0, 6)}</div><div className="sub">{HOOK_C[0].symbol} · {fmt(idle1, 6)} {HOOK_C[1].symbol}</div></div>
+              <div className="kpi"><div className="k">Pool claim</div><div className="v">{fmt(poolClaim0, 6)}</div><div className="sub">{HOOK_C[0].symbol} · {fmt(poolClaim1, 6)} {HOOK_C[1].symbol}</div></div>
               <div className="kpi"><div className="k">JIT liquidity</div><div className="v">{compact(jitLiq)}</div><div className="sub">materialized on swap</div></div>
               <div className="kpi"><div className="k">Price</div><div className="v">{price !== undefined ? price.toFixed(4) : "—"}</div><div className="sub">tick {tick !== undefined ? String(tick) : "—"}</div></div>
-              <div className="kpi"><div className="k">Your LP</div><div className="v">{fmt(hMax0, 6)}</div><div className="sub">USDC · {fmt(hMax1, 6)} USDT</div></div>
+              <div className="kpi"><div className="k">Your LP</div><div className="v">{fmt(hMax0, 6)}</div><div className="sub">{HOOK_C[0].symbol} · {fmt(hMax1, 6)} {HOOK_C[1].symbol}</div></div>
               <div className="kpi"><div className="k">Est. yield</div><div className="v" style={{ color: yieldTotal > 0n ? "#6be3b0" : undefined }}>+{fmt(yieldTotal, 6)}</div><div className="sub">{principal > 0n ? `${(Number(yieldTotal) / Number(principal) * 100).toFixed(4)}%` : "—"} · claim − shares</div></div>
             </div>
 
@@ -688,14 +733,14 @@ export default function ConsolePage() {
 
             <div className="act-bar">
               <div className="amt">
-                <TokenIcon symbol="USDC" size={15} />
+                <TokenIcon symbol={HOOK_C[0].symbol} size={15} />
                 <input value={lp0} onChange={(e) => setLp0(e.target.value)} placeholder="0.0" inputMode="decimal" />
-                <button className="amt-max" onClick={() => setLp0(maxOf(rows.find((r) => r.t.symbol === "USDC")?.wallet, 6))}>MAX</button>
+                <button className="amt-max" onClick={() => setLp0(maxOf(rows.find((r) => r.t.symbol === HOOK_C[0].symbol)?.wallet, 6))}>MAX</button>
               </div>
               <div className="amt">
-                <TokenIcon symbol="USDT" size={15} />
+                <TokenIcon symbol={HOOK_C[1].symbol} size={15} />
                 <input value={lp1} onChange={(e) => setLp1(e.target.value)} placeholder="0.0" inputMode="decimal" />
-                <button className="amt-max" onClick={() => setLp1(maxOf(rows.find((r) => r.t.symbol === "USDT")?.wallet, 6))}>MAX</button>
+                <button className="amt-max" onClick={() => setLp1(maxOf(rows.find((r) => r.t.symbol === HOOK_C[1].symbol)?.wallet, 6))}>MAX</button>
               </div>
               <div className="act-btns">
                 <button className="btn-sm primary" disabled={!active || busy !== null} onClick={hookDepositBoth}>Add LP</button>
@@ -710,14 +755,14 @@ export default function ConsolePage() {
                 </button>
               ))}
             </div>
-            <p className="hint">yours <b style={{ color: "var(--text-mid)" }}>{fmt(hMax0, 6)}</b> / <b style={{ color: "var(--text-mid)" }}>{fmt(hMax1, 6)}</b> · one-sided buckets (USDC above spot, USDT below) · empty = all</p>
+            <p className="hint">yours <b style={{ color: "var(--text-mid)" }}>{fmt(hMax0, 6)}</b> / <b style={{ color: "var(--text-mid)" }}>{fmt(hMax1, 6)}</b> · one-sided buckets ({HOOK_C[0].symbol} above spot, {HOOK_C[1].symbol} below) · empty = all</p>
 
             <div className="grid-scroll">
               <table className="dtable">
                 <thead><tr>{["Bucket", "Liquidity (L)", "Total shares", "Pool claim", "Your shares", "Your claim", "Yield", "Max w/d"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                 <tbody>
                   <tr>
-                    <td><TokenLabel symbol="USDC" /></td>
+                    <td><TokenLabel symbol={HOOK_C[0].symbol} /></td>
                     <td className="num" title={`L = ${bLiq(0)?.toString() ?? "—"}`}>{compact(bLiq(0))}</td>
                     <td className="num">{fmt(totS0, 6)}</td>
                     <td className="num">{fmt(poolClaim0, 6)}</td>
@@ -727,7 +772,7 @@ export default function ConsolePage() {
                     <td className="num">{fmt(hMax0, 6)}</td>
                   </tr>
                   <tr>
-                    <td><TokenLabel symbol="USDT" /></td>
+                    <td><TokenLabel symbol={HOOK_C[1].symbol} /></td>
                     <td className="num" title={`L = ${bLiq(1)?.toString() ?? "—"}`}>{compact(bLiq(1))}</td>
                     <td className="num">{fmt(totS1, 6)}</td>
                     <td className="num">{fmt(poolClaim1, 6)}</td>
@@ -792,6 +837,12 @@ export default function ConsolePage() {
                   <span className="ship-lbl">Fee (1e9)</span>
                   <input className="inp" style={{ width: 120 }} value={shipFee} onChange={(e) => setShipFee(e.target.value)} />
                   <span className="ship-lbl">{(Number(shipFee) / 1e7).toFixed(2)}%</span>
+                </div>
+                <div className="ship-row" style={{ borderTop: "1px solid var(--border)", marginTop: 12, paddingTop: 12 }}>
+                  <span className="ship-lbl">Test fill · take it yourself</span>
+                  <input className="inp" style={{ width: 110 }} value={takeAmt} onChange={(e) => setTakeAmt(e.target.value)} />
+                  <span className="ship-lbl">{TOKENS.find((t) => t.address === shipIn)?.symbol}</span>
+                  <button className="btn-sm" disabled={!active || busy !== null} onClick={testFill} title="Rebuild the same order and call the SwapVM swap from this wallet (quote first)">Take (quote + swap)</button>
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
                   <button className="btn-sm" onClick={() => setShipOpen(false)}>Cancel</button>

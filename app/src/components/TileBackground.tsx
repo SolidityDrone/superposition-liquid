@@ -18,10 +18,27 @@ import { useEffect, useRef } from "react";
  * readability scrim still apply.
  */
 
-const TILE = 13;
-const GAP = 7;
+const TILE = 10;
+const GAP = 0;
 const PITCH = TILE + GAP;
 const MAX_RIPPLES = 9;
+
+// 4x4 ordered-dither matrix (Bayer) — gives the checkerboard band transitions
+const BAYER = [
+  [0, 8, 2, 10],
+  [12, 4, 14, 6],
+  [3, 11, 1, 9],
+  [15, 7, 13, 5],
+];
+
+// azure → blue → white pixel palette (index 0 = empty, background shows through)
+const PALETTE: ([number, number, number] | null)[] = [
+  null,
+  [17, 92, 220], // deep azure
+  [38, 169, 255], // azure
+  [143, 216, 255], // light azure
+  [242, 251, 255], // near-white
+];
 
 type Wave = { dx: number; dy: number; len: number; speed: number; amp: number };
 
@@ -103,44 +120,29 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
 
     function draw(t: number) {
       ctx!.clearRect(0, 0, w, h);
+      ctx!.shadowBlur = 0;
 
-      // fixed grid: every tile keeps its slot, it only breathes in size
+      // pixel-dithered wave: fixed pixels, colour chosen by ordered dithering
+      // across the azure→white palette so band edges read as checkers.
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          const cx = c * PITCH + PITCH / 2;
-          const cy = r * PITCH + PITCH / 2;
+          const cx = c * PITCH + TILE / 2;
+          const cy = r * PITCH + TILE / 2;
           const height = heightAt(cx, cy, t);
 
-          const scale = 1 + height * 0.16; // crests swell, troughs shrink
+          const v = Math.min(1, Math.max(0, (height + 1.4) / 2.8));
+          const b = (BAYER[r & 3][c & 3] + 0.5) / 16;
+          let idx = Math.floor(v * PALETTE.length + b);
+          if (idx < 0) idx = 0;
+          if (idx >= PALETTE.length) idx = PALETTE.length - 1;
 
-          // color: interpolate between deep blue (troughs) and bright azure (crests)
-          const crest = Math.max(0, height);
-          const trough = Math.max(0, -height);
-          const alpha = 0.03 + crest * 0.38 + trough * 0.012;
-          const t01 = Math.min(1, Math.max(0, (height + 1.2) / 2.4)); // normalise ~[-1.2,1.2] → [0,1]
+          const col = PALETTE[idx];
+          if (!col) continue;
 
-          // deep blue #1a4fff → bright azure #00e5ff
-          const rC = Math.round(26 + t01 * (0 - 26));   // 26 → 0
-          const gC = Math.round(79 + t01 * (229 - 79));  // 79 → 229
-          const bC = Math.round(255);                     // stays 255
-
-          ctx!.save();
-          ctx!.translate(cx, cy);
-          ctx!.scale(scale, scale);
-          ctx!.beginPath();
-          ctx!.rect(-TILE / 2, -TILE / 2, TILE, TILE);
-          if (crest > 0.55) {
-            ctx!.shadowColor = "rgba(0, 229, 255, 0.55)";
-            ctx!.shadowBlur = 24 * crest;
-          } else {
-            ctx!.shadowBlur = 0;
-          }
-          ctx!.fillStyle = `rgba(${rC}, ${gC}, ${bC}, ${alpha.toFixed(3)})`;
-          ctx!.fill();
-          ctx!.restore();
+          ctx!.fillStyle = `rgb(${col[0]}, ${col[1]}, ${col[2]})`;
+          ctx!.fillRect(c * PITCH, r * PITCH, TILE, TILE);
         }
       }
-      ctx!.shadowBlur = 0;
     }
 
     function onPointerMove(e: PointerEvent) {

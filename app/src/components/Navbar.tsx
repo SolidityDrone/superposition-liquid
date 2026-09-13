@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppKit } from "@reown/appkit/react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { usePathname } from "next/navigation";
+import Brand from "@/components/Brand";
 import { SEPOLIA_CHAIN_ID, STACK, explorerTx } from "@/lib/sepolia";
 import { faucetBatchAbi } from "@/lib/abis";
 import { projectId } from "@/lib/wagmi";
@@ -18,10 +19,7 @@ export default function Navbar() {
     <nav className="nav">
       <div className="nav-inner">
         <a className="brand" href="/">
-          <img src="/logo.png" alt="Superposition" className="brand-logo" width={44} height={44} />
-          <div>
-            Superposition<span className="brand-dim">-Liquid</span>
-          </div>
+          <Brand />
         </a>
         <div className="nav-right">
           <a className="nav-hide" href="/">Home</a>

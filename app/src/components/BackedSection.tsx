@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import {
-  AaveLogo, MorphoLogo, EulerLogo, PendleLogo, StargateLogo,
-  UniswapLogo,
+  EulerLogo,
   LendingIcon, VaultIcon, FixedIncomeIcon, BridgeIcon, HookIcon,
 } from "@/components/logos";
-import { Yearn as YearnLogo, Spark as SparkLogo, Ethena as EthenaLogo, Frax as FraxLogo } from "react-web3-icons/defi";
+import {
+  Aave as AaveLogo, Morpho as MorphoLogo, Pendle as PendleLogo,
+  Yearn as YearnLogo, Spark as SparkLogo, Ethena as EthenaLogo, Frax as FraxLogo,
+} from "react-web3-icons/defi";
+import { Stargate as StargateLogo } from "react-web3-icons/bridge";
+import { Uniswap as UniswapLogo } from "react-web3-icons/dex";
 import { CHAINS, type ChainKey } from "@/components/chains";
 
 type ProtocolRow = {
@@ -139,7 +143,7 @@ export default function BackedSection() {
                     {b.prots.map((pr) => (
                       <span className="prot" key={pr.name} title={pr.name}>
                         <div className="prot-logo-wrap">
-                          <pr.Logo size={b.compact ? 30 : 38} />
+                          <pr.Logo size={b.compact ? 24 : 30} />
                           {!b.compact && (
                             <button
                               className="prot-expand"
@@ -168,29 +172,15 @@ export default function BackedSection() {
                 </div>
               ))}
             </div>
-            <div
-              style={{
-                marginTop: 18,
-                padding: "16px 18px",
-                border: "1px solid var(--border)",
-                borderRadius: 16,
-                background: "var(--bg-raise)",
-                display: "flex",
-                gap: 16,
-                flexWrap: "wrap",
-                alignItems: "baseline",
-              }}
-            >
-              <span className="kicker" style={{ color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".12em", fontSize: 12 }}>
-                Borrow mode
-              </span>
-              <p style={{ margin: 0, color: "var(--text-mid)", maxWidth: 760 }}>
+            <div className="borrow-callout">
+              <span className="kicker">Borrow mode</span>
+              <p>
                 An adapter is also a <b>source of capital</b>: with{" "}
                 <code>MakerConfig.BorrowConfig</code> (<code>enabled</code>, <code>collateral</code>,{" "}
                 <code>maxDebt</code>) a maker can quote an asset they <b>don&apos;t hold</b> — borrowed
                 against yield-bearing collateral, and the matching in-fill repays the debt first. The
                 configured collateral + risk capacitor are the soft isolation.{" "}
-                <a href="/app" style={{ color: "var(--accent)" }}>Configure it in the console →</a>
+                <a href="/app">Configure it in the console →</a>
               </p>
             </div>
           </div>

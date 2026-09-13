@@ -6,7 +6,7 @@ const SECTIONS = [
   { id: "top", label: "Overview" },
   { id: "layers", label: "Layers" },
   { id: "backed", label: "Adapters" },
-  { id: "how", label: "How it works" },
+  { id: "how", label: "Code" },
   { id: "hook", label: "Uniswap hook" },
   { id: "final", label: "Source" },
 ];

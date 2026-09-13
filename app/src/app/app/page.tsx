@@ -7,6 +7,9 @@ import { formatUnits, parseUnits, maxUint256, type Address } from "viem";
 import TileBackground from "@/components/TileBackground";
 import { TokenIcon, ProtocolIcon, TokenLabel, InfoIcon } from "@/components/icons";
 import { Dropdown } from "@/components/Dropdown";
+import YieldLeaderboard from "@/components/YieldLeaderboard";
+import SuperpositionSubgraph from "@/components/SuperpositionSubgraph";
+import PoolCurve from "@/components/PoolCurve";
 import { OneinchMono, Uniswap } from "react-web3-icons/dex";
 import { STACK, TOKENS, ADAPTERS, SEPOLIA_CHAIN_ID, AQUA, EXAMPLE_POOL_ID, explorerAddress, explorerTx, type TokenDef } from "@/lib/sepolia";
 import { erc20Abi, makerConfigAbi, aavePoolAbi, aaveAdapterAbi, aaveDataProviderAbi, erc4626Abi, superpositionAdapterAbi, superpositionHookAbi, v4StateViewAbi, aquaAbi, orderBuilderAbi, hookLpHelperAbi, erc1155Abi } from "@/lib/abis";
@@ -373,6 +376,14 @@ export default function ConsolePage() {
   const jitLiq = pick(poolInfo.data, 1) as bigint | undefined;
   const price = sqrtP !== undefined ? (Number(sqrtP) / 2 ** 96) ** 2 : undefined;
   const bLiq = (i: number) => field<bigint>(buckets?.[i], 2, "liquidity");
+  const ranges = ((buckets ?? []) as unknown[]).map((b) => ({
+    lower: Number(field(b, 0, "lower")),
+    upper: Number(field(b, 1, "upper")),
+    liquidity: field<bigint>(b, 2, "liquidity") ?? 0n,
+    c0: field<bigint>(b, 4, "c0") ?? 0n,
+    c1: field<bigint>(b, 5, "c1") ?? 0n,
+    active: Boolean(field(b, 6, "active")),
+  }));
   const hv0 = pick(hook.data, 11) as Address | undefined;
   const hv1 = pick(hook.data, 12) as Address | undefined;
 
@@ -579,6 +590,16 @@ export default function ConsolePage() {
           </div>
         </div>
 
+        {/* --- the graph: standardized cross-protocol data --- */}
+        <div className="dash">
+          <YieldLeaderboard />
+        </div>
+
+        {/* --- our own subgraph (Studio, keyless) --- */}
+        <div className="dash">
+          <SuperpositionSubgraph />
+        </div>
+
         {/* --- configure (sides + borrow in one table) --- */}
         <div className="dash">
           <div className="pnl">
@@ -659,6 +680,10 @@ export default function ConsolePage() {
               <div className="kpi"><div className="k">Price</div><div className="v">{price !== undefined ? price.toFixed(4) : "—"}</div><div className="sub">tick {tick !== undefined ? String(tick) : "—"}</div></div>
               <div className="kpi"><div className="k">Your LP</div><div className="v">{fmt(hMax0, 6)}</div><div className="sub">USDC · {fmt(hMax1, 6)} USDT</div></div>
               <div className="kpi"><div className="k">Est. yield</div><div className="v" style={{ color: yieldTotal > 0n ? "#6be3b0" : undefined }}>+{fmt(yieldTotal, 6)}</div><div className="sub">{principal > 0n ? `${(Number(yieldTotal) / Number(principal) * 100).toFixed(4)}%` : "—"} · claim − shares</div></div>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <PoolCurve ranges={ranges} tick={tick !== undefined ? Number(tick) : undefined} price={price} feeBps={100} />
             </div>
 
             <div className="act-bar">

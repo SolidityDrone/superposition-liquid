@@ -1,6 +1,9 @@
 import TileBackground from "@/components/TileBackground";
 import SectionNav from "@/components/SectionNav";
+import Brand from "@/components/Brand";
+import HeroOrbit from "@/components/HeroOrbit";
 import FillDiagram from "@/components/FillDiagram";
+import HookDiagram from "@/components/HookDiagram";
 import CodeSnippet from "@/components/CodeSnippet";
 import BackedSection from "@/components/BackedSection";
 import UniswapBadge from "@/components/UniswapBadge";
@@ -120,10 +123,7 @@ export default function Page() {
       <nav className="nav">
         <div className="nav-inner">
           <div className="brand">
-            <img src="/logo.png" alt="Superposition" className="brand-logo" width={44} height={44} />
-            <div>
-              Superposition<span className="brand-dim">-Liquid</span>
-            </div>
+            <Brand />
           </div>
           <div className="nav-right">
             <a className="nav-hide" href="/">Home</a>
@@ -152,8 +152,9 @@ export default function Page() {
               Superposition-Liquid is a <b>meta-layer for 1inch Aqua</b> — <b>capital
               adapters</b> and <b>meta-opcodes</b> that wrap any SwapVM curve. The maker&apos;s
               capital sits in yield protocols (Aave, Morpho, Euler, Pendle, Stargate,
-              Uniswap v4) and cycles in and out <b>atomically on every fill</b>; to the outside
-              world it reads as a plain ETH/USDC pool.
+              Uniswap v4) and cycles in and out <b>atomically on every fill</b> — you hold{" "}
+              <span className="yield-tag">Yielding-ETH/Yielding-USDC</span>, you quote on{" "}
+              <span className="yield-tag">ETH/USDC</span>.
             </p>
             <div className="cta-row">
               <a className="btn btn-primary" href="/app">Open maker console</a>
@@ -164,7 +165,7 @@ export default function Page() {
             </div>
           </div>
           <div className="hero-logo">
-            <img src="/logo.png" alt="Superposition-Liquid" />
+            <HeroOrbit />
           </div>
         </div>
       </header>
@@ -222,7 +223,7 @@ export default function Page() {
           <div className="panel diagram-head">
             <div className="diagram-title">One fill, end to end — the Aave maker, on a Base fork</div>
             <div className="diagram-sub">
-              S1–S3 run once, before any fill. Numbers 1–6 are the fill sequence — click one to replay it.
+              S1–S3 run once, before any fill. The coin retraces the whole fill lifecycle.
             </div>
           </div>
           <FillDiagram />
@@ -251,6 +252,14 @@ export default function Page() {
                 </div>
               ))}
             </div>
+            <div className="diagram-head">
+              <div className="diagram-title">The hook, end to end — data flow + ERC-1155 LP</div>
+              <div className="diagram-sub">
+                The router pulls through the hook; every tick range is an ERC-1155 bucket
+                the maker approves the router to operate.
+              </div>
+            </div>
+            <HookDiagram />
             <a
               className="hook-doc"
               href="https://github.com/SolidityDrone/superposition-liquid/blob/main/docs/superposition-uni-adapter.md"

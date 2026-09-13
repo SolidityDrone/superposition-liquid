@@ -1,7 +1,9 @@
 import type { FC } from "react";
 import { Usdc, Usdt, Dai, Eth, Btc, Link, Uni, Mkr, Ldo, Crv } from "react-web3-icons/coin";
-import { Aave as AaveToken, Yearn, Spark } from "react-web3-icons/defi";
-import { AaveLogo, MorphoLogo, EulerLogo, PendleLogo, StargateLogo, UniswapLogo } from "@/components/logos";
+import { Aave as AaveToken, Yearn, Spark, Morpho, Pendle } from "react-web3-icons/defi";
+import { Stargate } from "react-web3-icons/bridge";
+import { Oneinch, Uniswap } from "react-web3-icons/dex";
+import { EulerLogo } from "@/components/logos";
 
 type IconC = FC<{ size?: number }>;
 
@@ -47,15 +49,16 @@ export function TokenIcon({ symbol, size = 15 }: { symbol: string; size?: number
 }
 
 const PROTOCOL_ICONS: Record<string, IconC> = {
-  "erc4626-aave": AaveLogo as IconC,
-  aave: AaveLogo as IconC,
-  morpho: MorphoLogo as IconC,
+  "erc4626-aave": AaveToken as IconC,
+  aave: AaveToken as IconC,
+  morpho: Morpho as IconC,
   euler: EulerLogo as IconC,
   yearn: Yearn as IconC,
   spark: Spark as IconC,
-  superposition: UniswapLogo as IconC,
-  stargate: StargateLogo as IconC,
-  pendle: PendleLogo as IconC,
+  superposition: Uniswap as IconC,
+  stargate: Stargate as IconC,
+  pendle: Pendle as IconC,
+  oneinch: Oneinch as IconC,
 };
 
 export function ProtocolIcon({ id, size = 15 }: { id: string; size?: number }) {

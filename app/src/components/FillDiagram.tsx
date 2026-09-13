@@ -127,15 +127,6 @@ const STAGE_WINDOWS: Array<[number, number]> = [
 // coin identity windows (switches happen mid-hold, behind the actor cards)
 const PHASE_CUTS = [0.2897, 0.4877, 0.7599]; // usdc -> aUSDC -> aWETH -> WETH
 
-const LEGEND = [
-  { n: 1, stage: 1, label: "Resolvers relay the tx → router" },
-  { n: 2, stage: 2, label: "Taker pays USDC → router" },
-  { n: 3, stage: 3, label: "Hooks: USDC deposited → aUSDC" },
-  { n: 4, stage: 4, label: "aUSDC → maker (position grows)" },
-  { n: 5, stage: 5, label: "Maker's aWETH → aave (JIT withdraw)" },
-  { n: 6, stage: 6, label: "WETH → taker (delivered)" },
-];
-
 type Phase = "usdc" | "ausdc" | "aweth" | "eth";
 
 function interp(f: number, xs: number[], ys: number[]): number {
@@ -210,7 +201,6 @@ export default function FillDiagram() {
   const txRef = useRef<SVGGElement>(null);
   const [active, setActive] = useState(1);
   const [phase, setPhase] = useState<Phase>("usdc");
-  const [selected, setSelected] = useState<number | null>(null);
   const selectedRef = useRef<number | null>(null);
   const t0Ref = useRef(performance.now());
 
@@ -276,12 +266,6 @@ export default function FillDiagram() {
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, []);
-
-  const pick = (n: number) => {
-    selectedRef.current = selected === n ? null : n;
-    setSelected(selectedRef.current);
-    t0Ref.current = performance.now(); // replay the picked window from its start
-  };
 
   return (
     <div className="diagram-wrap">
@@ -404,26 +388,6 @@ export default function FillDiagram() {
               {n.name}
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* legend — clickable: pick a step to replay it in a loop */}
-      <div className="d-legend">
-        {LEGEND.map((l) => (
-          <button
-            type="button"
-            className={
-              selected === l.stage || (selected === null && active === l.stage)
-                ? "d-leg active"
-                : "d-leg"
-            }
-            key={l.stage}
-            onClick={() => pick(l.stage)}
-            aria-pressed={selected === l.stage}
-          >
-            <span className="d-leg-n">{l.n}</span>
-            {l.label}
-          </button>
         ))}
       </div>
     </div>

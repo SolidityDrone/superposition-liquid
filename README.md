@@ -333,6 +333,16 @@ deploy:
 **without** it (the wallet UI stays disabled until it is set), so the deploy never fails on a
 missing key. Node 20.9+ (Vercel default 22 is fine).
 
+### The Graph (composable & standardized data)
+
+The console ships a live **Yield leaderboard** backed by the **Messari Standardized Lending
+Subgraphs** — one GraphQL query across **Aave v3 · Compound v3 · Morpho · Spark** — plus a
+**SuperPosition Subgraph** (Subgraph Studio) that indexes the router fills, per-token adapter
+config, borrow config and the **ERC-4626** vault flows, and a **Subgraph MCP** composing both.
+See [`docs/thegraph.md`](docs/thegraph.md).
+
+Env: `NEXT_PUBLIC_THEGRAPH_API_KEY` (app), `THEGRAPH_API_KEY` + `SUPERPOSITION_SUBGRAPH_ID` (MCP).
+
 ## Repository layout
 
 ```

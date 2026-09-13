@@ -1,0 +1,16 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "name": "orderHash", "type": "bytes32" },
+      { "indexed": false, "name": "maker", "type": "address" },
+      { "indexed": false, "name": "taker", "type": "address" },
+      { "indexed": false, "name": "tokenIn", "type": "address" },
+      { "indexed": false, "name": "tokenOut", "type": "address" },
+      { "indexed": false, "name": "amountIn", "type": "uint256" },
+      { "indexed": false, "name": "amountOut", "type": "uint256" }
+    ],
+    "name": "Swapped",
+    "type": "event"
+  }
+]

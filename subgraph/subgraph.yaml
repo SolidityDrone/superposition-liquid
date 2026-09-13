@@ -1,0 +1,115 @@
+specVersion: 1.0.0
+description: >
+  SuperPosition — maker fills, per-token adapter config, borrow config and the
+  ERC-4626 / Uniswap-v4-hook capital flows. One event model across adapters.
+repository: https://github.com/SolidityDrone/superposition-liquid
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: SuperPositionVMRouter
+    network: sepolia
+    source:
+      address: "0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC"
+      abi: SuperPositionVMRouter
+      startBlock: 11686230
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities: [Fill, Maker]
+      abis:
+        - name: SuperPositionVMRouter
+          file: ./abis/SuperPositionVMRouter.json
+      eventHandlers:
+        - event: Swapped(bytes32,address,address,address,address,uint256,uint256)
+          handler: handleSwapped
+      file: ./src/router.ts
+
+  - kind: ethereum
+    name: MakerConfig
+    network: sepolia
+    source:
+      address: "0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926"
+      abi: MakerConfig
+      startBlock: 11686230
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities: [Maker, Side, BorrowConfig]
+      abis:
+        - name: MakerConfig
+          file: ./abis/MakerConfig.json
+      eventHandlers:
+        - event: SideSet(indexed address,indexed address,indexed address,uint8,bool)
+          handler: handleSideSet
+        - event: BorrowSet(indexed address,indexed address,address,uint256)
+          handler: handleBorrowSet
+      file: ./src/maker-config.ts
+
+  - kind: ethereum
+    name: VaultUSDC
+    network: sepolia
+    source:
+      address: "0x4F32F6bE82407E7956E5752672677542379a1ec8"
+      abi: ERC4626
+      startBlock: 11686230
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities: [Vault, VaultFlow]
+      abis:
+        - name: ERC4626
+          file: ./abis/ERC4626.json
+      eventHandlers:
+        - event: Deposit(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposit
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleWithdraw
+      file: ./src/vault.ts
+
+  - kind: ethereum
+    name: VaultUSDT
+    network: sepolia
+    source:
+      address: "0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D"
+      abi: ERC4626
+      startBlock: 11686230
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities: [Vault, VaultFlow]
+      abis:
+        - name: ERC4626
+          file: ./abis/ERC4626.json
+      eventHandlers:
+        - event: Deposit(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposit
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleWithdraw
+      file: ./src/vault.ts
+
+  - kind: ethereum
+    name: SuperpositionHook
+    network: sepolia
+    source:
+      address: "0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0"
+      abi: SuperpositionHook
+      startBlock: 11686230
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities: [HookBucketFlow]
+      abis:
+        - name: SuperpositionHook
+          file: ./abis/SuperpositionHook.json
+      eventHandlers:
+        - event: Deposited(indexed address,int24,int24,uint128,uint256,uint256,uint256)
+          handler: handleHookDeposited
+        - event: Withdrawn(indexed address,indexed address,int24,int24,uint256,uint256,uint256)
+          handler: handleHookWithdrawn
+      file: ./src/hook.ts

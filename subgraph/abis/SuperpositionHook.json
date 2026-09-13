@@ -1,0 +1,30 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "recipient", "type": "address" },
+      { "indexed": false, "name": "lower", "type": "int24" },
+      { "indexed": false, "name": "upper", "type": "int24" },
+      { "indexed": false, "name": "liquidity", "type": "uint128" },
+      { "indexed": false, "name": "amount0", "type": "uint256" },
+      { "indexed": false, "name": "amount1", "type": "uint256" },
+      { "indexed": false, "name": "shares", "type": "uint256" }
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "owner", "type": "address" },
+      { "indexed": true, "name": "recipient", "type": "address" },
+      { "indexed": false, "name": "lower", "type": "int24" },
+      { "indexed": false, "name": "upper", "type": "int24" },
+      { "indexed": false, "name": "shares", "type": "uint256" },
+      { "indexed": false, "name": "amount0", "type": "uint256" },
+      { "indexed": false, "name": "amount1", "type": "uint256" }
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  }
+]

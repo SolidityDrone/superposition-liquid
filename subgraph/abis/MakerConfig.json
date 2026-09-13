@@ -1,0 +1,25 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "maker", "type": "address" },
+      { "indexed": true, "name": "underlying", "type": "address" },
+      { "indexed": true, "name": "adapter", "type": "address" },
+      { "indexed": false, "name": "kind", "type": "uint8" },
+      { "indexed": false, "name": "autoManaged", "type": "bool" }
+    ],
+    "name": "SideSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "maker", "type": "address" },
+      { "indexed": true, "name": "underlying", "type": "address" },
+      { "indexed": false, "name": "collateral", "type": "address" },
+      { "indexed": false, "name": "maxDebt", "type": "uint256" }
+    ],
+    "name": "BorrowSet",
+    "type": "event"
+  }
+]

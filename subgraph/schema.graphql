@@ -1,0 +1,84 @@
+# SuperPosition subgraph — indexes the router fills, maker config and the
+# ERC-4626 / hook capital flows, on the same event model across adapters.
+
+type Maker @entity(immutable: false) {
+  id: ID!                      # maker address
+  fillCount: Int!
+  volumeIn: BigInt!
+  fills: [Fill!]! @derivedFrom(field: "maker")
+  sides: [Side!]! @derivedFrom(field: "maker")
+  borrows: [BorrowConfig!]! @derivedFrom(field: "maker")
+}
+
+type Fill @entity(immutable: true) {
+  id: Bytes!                   # tx hash + log index
+  orderHash: Bytes!
+  maker: Maker!
+  taker: Bytes!
+  tokenIn: Bytes!
+  tokenOut: Bytes!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type Side @entity(immutable: false) {
+  id: ID!                      # maker-token
+  maker: Maker!
+  underlying: Bytes!
+  adapter: Bytes!
+  kind: Int!
+  autoManaged: Boolean!
+  updatedAt: BigInt!
+}
+
+type BorrowConfig @entity(immutable: false) {
+  id: ID!                      # maker-token
+  maker: Maker!
+  underlying: Bytes!
+  collateral: Bytes!
+  maxDebt: BigInt!
+  updatedAt: BigInt!
+}
+
+type Vault @entity(immutable: false) {
+  id: ID!                      # vault address
+  asset: Bytes!
+  deposits: Int!
+  withdrawals: Int!
+  totalAssetsIn: BigInt!
+  totalAssetsOut: BigInt!
+  lastFlowAt: BigInt!
+  flows: [VaultFlow!]! @derivedFrom(field: "vault")
+}
+
+# ERC-4626 tokenized-vault flows — the reusable standard this subgraph builds on.
+type VaultFlow @entity(immutable: true) {
+  id: Bytes!
+  vault: Vault!
+  kind: String!                # "deposit" | "withdraw"
+  sender: Bytes!
+  owner: Bytes!
+  assets: BigInt!
+  shares: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}
+
+type HookBucketFlow @entity(immutable: true) {
+  id: Bytes!
+  hook: Bytes!
+  kind: String!                # "deposit" | "withdraw"
+  recipient: Bytes!
+  lower: Int!
+  upper: Int!
+  amount0: BigInt!
+  amount1: BigInt!
+  shares: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}

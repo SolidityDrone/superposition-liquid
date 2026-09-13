@@ -1,0 +1,12 @@
+{
+  "name": "superposition-subgraph-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "superposition-mcp": "./server.mjs" },
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  }
+}

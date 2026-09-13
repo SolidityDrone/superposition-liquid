@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useAppKit } from "@reown/appkit/react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { parseUnits } from "viem";
 import { usePathname } from "next/navigation";
 import Brand from "@/components/Brand";
-import { SEPOLIA_CHAIN_ID, STACK, explorerTx } from "@/lib/sepolia";
-import { faucetBatchAbi } from "@/lib/abis";
+import { SEPOLIA_CHAIN_ID, STACK, TOKENS, explorerTx } from "@/lib/sepolia";
+import { faucetAbi } from "@/lib/abis";
 import { projectId } from "@/lib/wagmi";
 
 const APP_KIT_READY = !!projectId;
@@ -53,17 +54,21 @@ function WalletControls() {
     if (!address) return;
     setMinting(true);
     try {
-      const hash = await writeContractAsync({
-        address: STACK.faucetBatch,
-        abi: faucetBatchAbi,
-        functionName: "mintAll",
-        args: [address, 1000n],
-      });
-      window.open(explorerTx(hash), "_blank", "noopener,noreferrer");
-      try {
-        await publicClient?.waitForTransactionReceipt({ hash, timeout: 90_000 });
-      } catch { /* tx may still land */ }
-    } catch { /* wallet rejection / revert */ }
+      // Base Sepolia: the Aave faucet has no `isMintable`; mint each faucet token directly
+      // (it enforces a per-recipient timelock, so a token may revert if you minted recently).
+      for (const t of TOKENS.filter((t) => t.faucet)) {
+        const hash = await writeContractAsync({
+          address: STACK.aaveFaucet,
+          abi: faucetAbi,
+          functionName: "mint",
+          args: [t.address, address, parseUnits("1000", t.decimals)],
+        });
+        window.open(explorerTx(hash), "_blank", "noopener,noreferrer");
+        try {
+          await publicClient?.waitForTransactionReceipt({ hash, timeout: 60_000 });
+        } catch { /* tx may still land */ }
+      }
+    } catch { /* wallet rejection */ }
     finally {
       setMinting(false);
     }

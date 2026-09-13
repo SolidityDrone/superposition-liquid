@@ -51,16 +51,18 @@ export interface TokenDef {
   erc4626Vault?: Address;
   /** Permissionlessly mintable from the Aave Base Sepolia faucet (mint(token,to,amount)). */
   faucet: boolean;
+  /** Whole-token amount the Aave faucet allows per mint (per-token cap). */
+  faucetAmount?: string;
   note?: string;
 }
 
 export const TOKENS: TokenDef[] = [
-  { symbol: "USDC", name: "USD Coin", address: "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f", decimals: 6, category: "stable", aaveListed: true, aToken: "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC", erc4626Vault: "0x126b97C6AF4748118504A993e97EbAA1cb863576", faucet: true },
-  { symbol: "USDT", name: "Tether USD", address: "0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a", decimals: 6, category: "stable", aaveListed: true, aToken: "0xcE3CAae5Ed17A7AafCEEbc897DE843fA6CC0c018", erc4626Vault: "0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396", faucet: true },
+  { symbol: "USDC", name: "USD Coin", address: "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f", decimals: 6, category: "stable", aaveListed: true, aToken: "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC", erc4626Vault: "0x126b97C6AF4748118504A993e97EbAA1cb863576", faucet: true, faucetAmount: "10000" },
+  { symbol: "USDT", name: "Tether USD", address: "0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a", decimals: 6, category: "stable", aaveListed: true, aToken: "0xcE3CAae5Ed17A7AafCEEbc897DE843fA6CC0c018", erc4626Vault: "0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396", faucet: true, faucetAmount: "10000" },
   { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, category: "eth", aaveListed: true, aToken: "0x73a5bB60b0B0fc35710DDc0ea9c407031E31Bdbb", faucet: false, note: "wrap ETH (WETH9.deposit)" },
-  { symbol: "WBTC", name: "Wrapped BTC", address: "0x54114591963CF60EF3aA63bEfD6eC263D98145a4", decimals: 8, category: "btc", aaveListed: true, faucet: false, note: "faucet owned (not permissionless)" },
-  { symbol: "LINK", name: "Chainlink", address: "0x810D46F9a9027E28F9B01F75E2bdde839dA61115", decimals: 18, category: "defi", aaveListed: true, faucet: false, note: "faucet owned (not permissionless)" },
-  { symbol: "cbETH", name: "Coinbase Wrapped ETH", address: "0xD171b9694f7A2597Ed006D41f7509aaD4B485c4B", decimals: 18, category: "lst", aaveListed: true, faucet: false },
+  { symbol: "WBTC", name: "Wrapped BTC", address: "0x54114591963CF60EF3aA63bEfD6eC263D98145a4", decimals: 8, category: "btc", aaveListed: true, faucet: true, faucetAmount: "1" },
+  { symbol: "LINK", name: "Chainlink", address: "0x810D46F9a9027E28F9B01F75E2bdde839dA61115", decimals: 18, category: "defi", aaveListed: true, faucet: true, faucetAmount: "1000" },
+  { symbol: "cbETH", name: "Coinbase Wrapped ETH", address: "0xD171b9694f7A2597Ed006D41f7509aaD4B485c4B", decimals: 18, category: "lst", aaveListed: true, faucet: true, faucetAmount: "1" },
 ];
 
 export interface AdapterDef {

@@ -7,7 +7,7 @@ import { parseUnits } from "viem";
 import { usePathname } from "next/navigation";
 import Brand from "@/components/Brand";
 import { SEPOLIA_CHAIN_ID, STACK, TOKENS, explorerTx } from "@/lib/sepolia";
-import { faucetAbi } from "@/lib/abis";
+import { faucetAbi, weth9Abi } from "@/lib/abis";
 import { projectId } from "@/lib/wagmi";
 
 const APP_KIT_READY = !!projectId;
@@ -53,25 +53,28 @@ function WalletControls() {
   async function mintAll() {
     if (!address) return;
     setMinting(true);
-    try {
-      // Base Sepolia: the Aave faucet has no `isMintable`; mint each faucet token directly
-      // (it enforces a per-recipient timelock, so a token may revert if you minted recently).
-      for (const t of TOKENS.filter((t) => t.faucet)) {
-        const hash = await writeContractAsync({
-          address: STACK.aaveFaucet,
-          abi: faucetAbi,
-          functionName: "mint",
-          args: [t.address, address, parseUnits("1000", t.decimals)],
-        });
+    // Base Sepolia: the Aave faucet has no `isMintable`; mint each faucet token directly
+    // (per-token cap + per-recipient timelock, so a token can revert -> skip and continue).
+    // WETH is not faucet-mintable: wrap a little ETH instead.
+    for (const t of TOKENS) {
+      try {
+        const isWeth = t.symbol === "WETH";
+        if (!isWeth && !t.faucet) continue;
+        const hash = isWeth
+          ? await writeContractAsync({ address: t.address, abi: weth9Abi, functionName: "deposit", value: parseUnits("0.001", 18) })
+          : await writeContractAsync({
+              address: STACK.aaveFaucet,
+              abi: faucetAbi,
+              functionName: "mint",
+              args: [t.address, address, parseUnits(t.faucetAmount ?? "1000", t.decimals)],
+            });
         window.open(explorerTx(hash), "_blank", "noopener,noreferrer");
         try {
           await publicClient?.waitForTransactionReceipt({ hash, timeout: 60_000 });
         } catch { /* tx may still land */ }
-      }
-    } catch { /* wallet rejection */ }
-    finally {
-      setMinting(false);
+      } catch { /* timelock / cap / rejected -> next token */ }
     }
+    setMinting(false);
   }
 
   return (

@@ -317,117 +317,94 @@ are listed in the Tests section.
 
 | Testnet | Chain ID | Config file | RPC |
 |---|---|---|---|
+| **Base Sepolia** ← the console targets this | 84532 | `script/base-sepolia/DeployBaseSepolia.s.sol` | `https://sepolia.base.org` |
 | Ethereum Sepolia | 11155111 | `SepoliaChain.s.sol` | `https://ethereum-sepolia.publicnode.com` |
-| Base Sepolia | 84532 | `BaseSepoliaChain.s.sol` | `https://sepolia.base.org` |
 
-Aqua + SwapVM use the **same vanity addresses** on mainnet and testnets. Morpho, Euler,
-Pendle and wstETH have no public testnet deployments (permissionless — deploy your own).
+> ⚠️ **Aqua + the 1inch SwapVM router are NOT deployed on Base Sepolia** (the `0x111…` vanity has
+> no code there) — our deploy publishes **our own Aqua**. Morpho, Euler, Pendle and wstETH have no
+> public testnet deployments (permissionless — deploy your own).
 
-**Live on Ethereum Sepolia** (`script/sepolia/DeploySepolia.s.sol`, chainId 11155111):
+**Live on Base Sepolia** (`script/base-sepolia/DeployBaseSepolia.s.sol`, chainId 84532) —
+Sourcify `exact_match`, **12/12**:
 
 | Contract | Address |
 |---|---|
-| MakerConfig | `0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926` |
-| SuperPositionVMRouter | `0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC` |
-| AaveV3Adapter | `0xd915d3Db7f18f75D67c63B3Aa00872fbCE793c57` |
-| ERC4626Adapter (Aave-backed vaults) | `0xb1B9955600DfAF8987da8c9D0A37F2d2ee4B8752` |
-| SuperPosition USDC vault (ERC-4626) | `0x4F32F6bE82407E7956E5752672677542379a1ec8` |
-| SuperPosition USDT vault (ERC-4626) | `0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D` |
-| SuperpositionHook (v4, USDC/USDT fee=100 spacing=1) | `0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0` |
-| SuperpositionUniAdapter | `0x1be3291f7Ef08e56f0141007F49846fB07794C8B` |
-| Aave v3 Pool | `0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951` |
-| Aave testnet Faucet | `0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D` |
-| SepoliaFaucetBatch (`mintAll` in one tx) | `0xE05742c33bf6b347919B26934fa1Df9eF056F156` |
-| OrderBuilder (`build` order bytes for `aqua.ship`) | `0x593f18800df097f059270357948F24bC677f50c5` |
+| Aqua (ours) | `0x06DC4edCF4F3ABdFa65Cc4fD58AB459B5ff20F9e` |
+| MakerConfig | `0x0196eeF216fAF47DE34bcbEd5fB1ab4f97A932ee` |
+| SuperPositionVMRouter | `0x4fefc5D38eE27f09F68484574A3B4AAC914d4097` |
+| AaveV3Adapter | `0x56BE9DC69c798BC8B7567958b1B45f4b6e4502eb` |
+| ERC4626Adapter | `0x0f47Ca0065B7f0Ff00eEDf6D92D977389Aa8CcbF` |
+| SuperPosition USDC vault (ERC-4626) | `0x126b97C6AF4748118504A993e97EbAA1cb863576` |
+| SuperPosition USDT vault (ERC-4626) | `0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396` |
+| SuperpositionHook (v4, USDT/USDC fee=100 spacing=1) | `0x2F6bA013a29967F3A638887f8BefB18424658Ac0` |
+| SuperpositionUniAdapter | `0x81e92e910B978e5F3865E4E815660725662EE236` |
+| OrderBuilder (`build` order bytes for `aqua.ship`) | `0x7a8F11c29FD46e21aA70638f8f6BA62777cf920C` |
+| HookLpHelper (`provide`/`redeem` hook LP) | `0x24F0A572A6A7Ae73322aB5B19Ee83d50343A5D23` |
+| SepoliaFaucetBatch (`mintAll` in one tx) | `0xbe135721492C6525cAf47454aEEFc37B378bf895` |
 
-Testnet scarcity: Aave Sepolia's stable reserves (USDC/USDT/DAI) are **at their supply cap**
-(`SUPPLY_CAP_EXCEEDED`), so `Aave4626Vault` (and the hook) fall back to **idle** — both the
-`AaveV3Adapter` and the `ERC4626Adapter` routes are fully functional on Sepolia (deposit,
-withdraw, JIT cycling, LP shares) but yield accrues only on mainnet. Sepolia USDC/USDT are
-mintable via the Aave faucet (`mint(token,to,amount)`).
+Unlike Ethereum Sepolia (where the stable reserves sit at their supply cap, so the ERC-4626
+vaults fall back to **idle**), **Base Sepolia's USDC / USDT / WETH reserves are not capped** — the
+ERC-4626 vaults hold **real aTokens** and the JIT movement is live. There is no official Aave
+waToken (StataToken) factory on Base Sepolia, so the wrapper is our `Aave4626Vault`. USDC/USDT are
+mintable via the Aave Base Sepolia faucet `0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc`.
 
-**Verified keyless on Sourcify (`exact_match`).** All Sepolia contracts are verified on
-**[Sourcify](https://sourcify.dev)** with no API key. Note: **Etherscan does not read Sourcify**
-(it needs its own API key), so an Etherscan "Contract" tab may show unverified — trust the
+**Verified keyless on Sourcify (`exact_match`).** All contracts are verified on
+**[Sourcify](https://sourcify.dev)** with no API key. Note: **Etherscan/BaseScan does not read
+Sourcify** without its own API key, so the explorer "Contract" tab may show unverified — trust the
 Sourcify links below (`exact_match` = creation + runtime). Routescan / Blockscout do index Sourcify.
 
 ```
-forge verify-contract <address> <path:Contract> --chain 11155111 \
+forge verify-contract <address> <path:Contract> --chain 84532 \
   --verifier sourcify --verifier-url https://sourcify.dev/server/ \
-  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --rpc-url https://sepolia.base.org \
   --constructor-args $(cast abi-encode "constructor(...)" ...)
 ```
 
-Verified (11/11): `MakerConfig`, `SuperPositionVMRouter`, `AaveV3Adapter`, `ERC4626Adapter`, the
-two ERC-4626 vaults, `SuperpositionHook`, `SuperpositionUniAdapter`, `SepoliaFaucetBatch`,
-`OrderBuilder`, `HookLpHelper`.
+Verified (12/12): `Aqua`, `MakerConfig`, `SuperPositionVMRouter`, `AaveV3Adapter`,
+`ERC4626Adapter`, the two ERC-4626 vaults, `SuperpositionHook`, `SuperpositionUniAdapter`,
+`OrderBuilder`, `HookLpHelper`, `SepoliaFaucetBatch`.
 
-### 📜 Live make ⇄ take on Ethereum Sepolia
+### 📜 Live make ⇄ take on Base Sepolia
 
-A real maker order was shipped on Aqua and taken by a **separate taker** — signature-less
-(`useAquaInsteadOfSignature`), capital JIT-cycled through the hook:
+A maker ships an order on Aqua and a **separate taker** takes it — signature-less
+(`useAquaInsteadOfSignature`), capital JIT-cycled through the Aave ERC-4626 vaults:
 
-| Step | Transaction |
-|---|---|
-| maker · `MakerConfig.setSides` → `SuperpositionUniAdapter` | [`0x011778…78fce`](https://sepolia.etherscan.io/tx/0x0117782532ba14d171d626eb8dd435d37e441340a86783ac1ea259e107e78fce) |
-| maker · `Aqua.ship(order)` | [`0xfe2a1b…9eb39`](https://sepolia.etherscan.io/tx/0xfe2a1bc60dcae661091987be8ce240fcc44d8f629529a0a1af7527e283b9eb39) |
-| taker · Aave faucet `mint(USDC)` | [`0xa69f1c…f519b`](https://sepolia.etherscan.io/tx/0xa69f1c4d8b40de1b0782ed5fbe0bdda2c662ef8ddf8667a38804779ac4f7519b) |
-| **take** · taker `router.swap(order)` — **100 USDC → 98.706 USDT** | [`0x2bb1e6…c36d01`](https://sepolia.etherscan.io/tx/0x2bb1e63c01feb397ddd0b3e6f09cb500c4ac00f5e9d796fdfd46738b61c36d01) |
+| Demo | ship | swap | result |
+|---|---|---|---|
+| **USDC → WETH** | [`0x8d7ea4…`](https://sepolia.basescan.org/tx/0x8d7ea40c376dfa76e1748b4bfb9a6623dff6839714d8797aa9b68611309f595a) | [`0xc5871d…`](https://sepolia.basescan.org/tx/0xc5871d8b99e98fc1fb7311f89050568678f6bbeef87ac00294e6bcc1fb583f16) | 1 USDC → 0.0009066 WETH |
+| **USDC → USDT** (no WETH, no hook) | [`0xa1991f…`](https://sepolia.basescan.org/tx/0xa1991fb8f22245622d2c5c07b2e58104f3e291c000b5ff14ee8d8fa199d293dd) | [`0x91db65…`](https://sepolia.basescan.org/tx/0x91db65a7c83a2ef15a1a3071483e7a0ee542e6c4080b9f15ccbc97e62f553526) | 1 USDC → 0.9066 USDT |
 
-Reproduce — `forge script script/sepolia/ShipSepolia.s.sol` (make) then
-`script/sepolia/TakeSepolia.s.sol` (take), each with its own keystore.
+Read the swap tx's token transfers: the fill **burns `aUSDT`** in the spUSDT vault to deliver
+(`aUSDT` 1000 → 999.09) and **mints `aUSDC`** in the spUSDC vault on the received side — real Aave
+movement inside a single 1inch/Aqua transaction.
 
-### ✅ Verified contracts — Sourcify `exact_match` (keyless)
+Reproduce — `forge script script/base-sepolia/DeployBaseSepolia.s.sol` (deploy), then
+`BaseSepoliaStableSwap.s.sol` / `BaseSepoliaDemo.s.sol` (ship + take).
+
+### ✅ Verified contracts — Sourcify `exact_match` (Base Sepolia, 12/12)
 
 Every address below is **`exact_match`** on Sourcify (creation + runtime). Click **Sourcify** to
-open the lookup; the **explorer** link is only for address/tx context (Etherscan does not read
+open the lookup; the **BaseScan** link is only for address/tx context (BaseScan does not read
 Sourcify without its own API key).
 
-| Contract | Sourcify (exact_match) | Sepolia explorer |
+| Contract | Sourcify (exact_match) | BaseScan |
 |---|---|---|
-| `MakerConfig` | [lookup](https://sourcify.dev/#/lookup/0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926) | [address](https://sepolia.etherscan.io/address/0xF56EBe6386F40969A9721C6aB3fa07BEaD1Bd926) |
-| `SuperPositionVMRouter` | [lookup](https://sourcify.dev/#/lookup/0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC) | [address](https://sepolia.etherscan.io/address/0x201D78030bed2d81F827B7650E2CB7C00Ea0c9EC) |
-| `AaveV3Adapter` | [lookup](https://sourcify.dev/#/lookup/0xd915d3Db7f18f75D67c63B3Aa00872fbCE793c57) | [address](https://sepolia.etherscan.io/address/0xd915d3Db7f18f75D67c63B3Aa00872fbCE793c57) |
-| `ERC4626Adapter` | [lookup](https://sourcify.dev/#/lookup/0xb1B9955600DfAF8987da8c9D0A37F2d2ee4B8752) | [address](https://sepolia.etherscan.io/address/0xb1B9955600DfAF8987da8c9D0A37F2d2ee4B8752) |
-| USDC vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x4F32F6bE82407E7956E5752672677542379a1ec8) | [address](https://sepolia.etherscan.io/address/0x4F32F6bE82407E7956E5752672677542379a1ec8) |
-| USDT vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D) | [address](https://sepolia.etherscan.io/address/0x0d98E00F0EFfE80a8Afd23FbA7cd0483E46CAa8D) |
-| `SuperpositionHook` (v4) | [lookup](https://sourcify.dev/#/lookup/0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0) | [address](https://sepolia.etherscan.io/address/0x6A7A2C6495A16f0a4c77E771f8A3945ee3494aC0) |
-| `SuperpositionUniAdapter` | [lookup](https://sourcify.dev/#/lookup/0x1be3291f7Ef08e56f0141007F49846fB07794C8B) | [address](https://sepolia.etherscan.io/address/0x1be3291f7Ef08e56f0141007F49846fB07794C8B) |
-| `SepoliaFaucetBatch` | [lookup](https://sourcify.dev/#/lookup/0xE05742c33bf6b347919B26934fa1Df9eF056F156) | [address](https://sepolia.etherscan.io/address/0xE05742c33bf6b347919B26934fa1Df9eF056F156) |
-| `OrderBuilder` | [lookup](https://sourcify.dev/#/lookup/0x593f18800df097f059270357948F24bC677f50c5) | [address](https://sepolia.etherscan.io/address/0x593f18800df097f059270357948F24bC677f50c5) |
-| `HookLpHelper` | [lookup](https://sourcify.dev/#/lookup/0x7686615960Ff41551165a27fE63b15917830E04D) | [address](https://sepolia.etherscan.io/address/0x7686615960Ff41551165a27fE63b15917830E04D) |
+| `Aqua` (ours) | [lookup](https://sourcify.dev/#/lookup/0x06DC4edCF4F3ABdFa65Cc4fD58AB459B5ff20F9e) | [address](https://sepolia.basescan.org/address/0x06DC4edCF4F3ABdFa65Cc4fD58AB459B5ff20F9e) |
+| `MakerConfig` | [lookup](https://sourcify.dev/#/lookup/0x0196eeF216fAF47DE34bcbEd5fB1ab4f97A932ee) | [address](https://sepolia.basescan.org/address/0x0196eeF216fAF47DE34bcbEd5fB1ab4f97A932ee) |
+| `SuperPositionVMRouter` | [lookup](https://sourcify.dev/#/lookup/0x4fefc5D38eE27f09F68484574A3B4AAC914d4097) | [address](https://sepolia.basescan.org/address/0x4fefc5D38eE27f09F68484574A3B4AAC914d4097) |
+| `AaveV3Adapter` | [lookup](https://sourcify.dev/#/lookup/0x56BE9DC69c798BC8B7567958b1B45f4b6e4502eb) | [address](https://sepolia.basescan.org/address/0x56BE9DC69c798BC8B7567958b1B45f4b6e4502eb) |
+| `ERC4626Adapter` | [lookup](https://sourcify.dev/#/lookup/0x0f47Ca0065B7f0Ff00eEDf6D92D977389Aa8CcbF) | [address](https://sepolia.basescan.org/address/0x0f47Ca0065B7f0Ff00eEDf6D92D977389Aa8CcbF) |
+| USDC vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x126b97C6AF4748118504A993e97EbAA1cb863576) | [address](https://sepolia.basescan.org/address/0x126b97C6AF4748118504A993e97EbAA1cb863576) |
+| USDT vault (ERC-4626) | [lookup](https://sourcify.dev/#/lookup/0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396) | [address](https://sepolia.basescan.org/address/0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396) |
+| `SuperpositionHook` (v4) | [lookup](https://sourcify.dev/#/lookup/0x2F6bA013a29967F3A638887f8BefB18424658Ac0) | [address](https://sepolia.basescan.org/address/0x2F6bA013a29967F3A638887f8BefB18424658Ac0) |
+| `SuperpositionUniAdapter` | [lookup](https://sourcify.dev/#/lookup/0x81e92e910B978e5F3865E4E815660725662EE236) | [address](https://sepolia.basescan.org/address/0x81e92e910B978e5F3865E4E815660725662EE236) |
+| `OrderBuilder` | [lookup](https://sourcify.dev/#/lookup/0x7a8F11c29FD46e21aA70638f8f6BA62777cf920C) | [address](https://sepolia.basescan.org/address/0x7a8F11c29FD46e21aA70638f8f6BA62777cf920C) |
+| `HookLpHelper` | [lookup](https://sourcify.dev/#/lookup/0x24F0A572A6A7Ae73322aB5B19Ee83d50343A5D23) | [address](https://sepolia.basescan.org/address/0x24F0A572A6A7Ae73322aB5B19Ee83d50343A5D23) |
+| `SepoliaFaucetBatch` | [lookup](https://sourcify.dev/#/lookup/0xbe135721492C6525cAf47454aEEFc37B378bf895) | [address](https://sepolia.basescan.org/address/0xbe135721492C6525cAf47454aEEFc37B378bf895) |
 
+The console (`app/`) points at this stack. Full address list (incl. external Aave/v4):
+[`docs/ADDRESSES.md`](docs/ADDRESSES.md).
 
-### 🟦 Base Sepolia — end-to-end, with **real Aave movement**
-
-Aqua is **not** deployed on Base Sepolia (the `0x111…` vanity has no code there), so we deploy
-**our own Aqua** + the SuperPosition stack. Aave Base Sepolia's USDC / USDT / WETH reserves are
-**not** supply-capped, so the ERC-4626 vaults hold **real aTokens** and the JIT fill moves them.
-
-| Contract | Address (Sourcify `exact_match`, **11/11**) |
-|---|---|
-| Aqua (ours) | `0x06DC4edC…20F9e` |
-| MakerConfig | `0x0196eeF2…A932ee` |
-| SuperPositionVMRouter | `0x4fefc5D3…d4097` |
-| AaveV3Adapter | `0x56BE9DC6…4502eb` |
-| ERC4626Adapter | `0x0f47Ca00…a8CcbF` |
-| spUSDC / spUSDT (ERC-4626 over Aave) | `0x126b97C6…63576` · `0x682E0DBE…93396` |
-| SuperpositionHook (v4, USDT/USDC) | `0x2F6bA013…658Ac0` |
-| SuperpositionUniAdapter | `0x81e92e91…2EE236` |
-| OrderBuilder · HookLpHelper · FaucetBatch | `0x7a8F11c2…f920C` · `0x24F0A572…3A5D23` · `0xbe135721…bf895` |
-
-Deployed by `script/base-sepolia/DeployBaseSepolia.s.sol` (our Aqua + stack + the v4 hook via
-CREATE2 + the testnet helpers). The **console (`app/`) now targets Base Sepolia** (chainId 84532).
-
-Live swaps (demo deployment, same bytecode) — the fill **burns `aUSDT` in spUSDT** to deliver and
-**mints `aUSDC` in spUSDC** on the received side (real Aave movement):
-
-| Demo | ship | swap |
-|---|---|---|
-| **USDC → WETH** | [`0x8d7ea4…`](https://sepolia.basescan.org/tx/0x8d7ea40c376dfa76e1748b4bfb9a6623dff6839714d8797aa9b68611309f595a) | [`0xc5871d…`](https://sepolia.basescan.org/tx/0xc5871d8b99e98fc1fb7311f89050568678f6bbeef87ac00294e6bcc1fb583f16) |
-| **USDC → USDT** (no WETH, no hook) | [`0xa1991f…`](https://sepolia.basescan.org/tx/0xa1991fb8f22245622d2c5c07b2e58104f3e291c000b5ff14ee8d8fa199d293dd) | [`0x91db65…`](https://sepolia.basescan.org/tx/0x91db65a7c83a2ef15a1a3071483e7a0ee542e6c4080b9f15ccbc97e62f553526) |
-
-Full address list: [`docs/ADDRESSES.md`](docs/ADDRESSES.md).
 
 ### Vercel (frontend)
 

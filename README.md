@@ -398,6 +398,37 @@ Sourcify without its own API key).
 | `HookLpHelper` | [lookup](https://sourcify.dev/#/lookup/0x7686615960Ff41551165a27fE63b15917830E04D) | [address](https://sepolia.etherscan.io/address/0x7686615960Ff41551165a27fE63b15917830E04D) |
 
 
+### 🟦 Base Sepolia — end-to-end, with **real Aave movement**
+
+Aqua is **not** deployed on Base Sepolia (the `0x111…` vanity has no code there), so we deploy
+**our own Aqua** + the SuperPosition stack. Aave Base Sepolia's USDC / USDT / WETH reserves are
+**not** supply-capped, so the ERC-4626 vaults hold **real aTokens** and the JIT fill moves them.
+
+| Contract | Address (Sourcify `exact_match`, **11/11**) |
+|---|---|
+| Aqua (ours) | `0x06DC4edC…20F9e` |
+| MakerConfig | `0x0196eeF2…A932ee` |
+| SuperPositionVMRouter | `0x4fefc5D3…d4097` |
+| AaveV3Adapter | `0x56BE9DC6…4502eb` |
+| ERC4626Adapter | `0x0f47Ca00…a8CcbF` |
+| spUSDC / spUSDT (ERC-4626 over Aave) | `0x126b97C6…63576` · `0x682E0DBE…93396` |
+| SuperpositionHook (v4, USDT/USDC) | `0x2F6bA013…658Ac0` |
+| SuperpositionUniAdapter | `0x81e92e91…2EE236` |
+| OrderBuilder · HookLpHelper · FaucetBatch | `0x7a8F11c2…f920C` · `0x24F0A572…3A5D23` · `0xbe135721…bf895` |
+
+Deployed by `script/base-sepolia/DeployBaseSepolia.s.sol` (our Aqua + stack + the v4 hook via
+CREATE2 + the testnet helpers). The **console (`app/`) now targets Base Sepolia** (chainId 84532).
+
+Live swaps (demo deployment, same bytecode) — the fill **burns `aUSDT` in spUSDT** to deliver and
+**mints `aUSDC` in spUSDC** on the received side (real Aave movement):
+
+| Demo | ship | swap |
+|---|---|---|
+| **USDC → WETH** | [`0x8d7ea4…`](https://sepolia.basescan.org/tx/0x8d7ea40c376dfa76e1748b4bfb9a6623dff6839714d8797aa9b68611309f595a) | [`0xc5871d…`](https://sepolia.basescan.org/tx/0xc5871d8b99e98fc1fb7311f89050568678f6bbeef87ac00294e6bcc1fb583f16) |
+| **USDC → USDT** (no WETH, no hook) | [`0xa1991f…`](https://sepolia.basescan.org/tx/0xa1991fb8f22245622d2c5c07b2e58104f3e291c000b5ff14ee8d8fa199d293dd) | [`0x91db65…`](https://sepolia.basescan.org/tx/0x91db65a7c83a2ef15a1a3071483e7a0ee542e6c4080b9f15ccbc97e62f553526) |
+
+Full address list: [`docs/ADDRESSES.md`](docs/ADDRESSES.md).
+
 ### Vercel (frontend)
 
 The maker console lives in `app/` (Next.js 16, React 19, wagmi + Reown AppKit). One-shot

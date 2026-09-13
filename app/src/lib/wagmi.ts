@@ -1,10 +1,10 @@
 import { cookieStorage, createStorage } from "wagmi";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { sepolia, type AppKitNetwork } from "@reown/appkit/networks";
+import { baseSepolia, type AppKitNetwork } from "@reown/appkit/networks";
 
 export const projectId = process.env.NEXT_PUBLIC_PROJECT_ID ?? "";
 
-export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [sepolia];
+export const networks: [AppKitNetwork, ...AppKitNetwork[]] = [baseSepolia];
 
 export const metadata = {
   name: "SuperPosition Liquid",

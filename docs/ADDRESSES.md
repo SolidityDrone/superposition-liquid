@@ -37,17 +37,57 @@
 
 ## Base Sepolia (testnet)
 
+> ⚠️ **Aqua and the 1inch SwapVM router are NOT deployed on Base Sepolia** (the vanity
+> `0x111…` addresses have no code there). We therefore **deploy our own Aqua** and the
+> SuperPosition stack, and use it end-to-end (see below).
+
+**External**
+
 | Contract | Address | Notes |
 |---|---|---|
-| Aqua registry | `0x1111113CCf1426A8E30e2bfF5E005d929bF6a90a` | same as mainnet |
-| SwapVM router | `0x111111338c5091E8440b67B168bAe16a668AC0De` | same as mainnet |
-| Aave v3 Pool | `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27` | |
+| Aave v3 Pool | `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27` | reserves: USDC · USDT · WBTC · WETH · cbETH · LINK |
+| Aave DataProvider | `0xBc9f5b7E248451CdD7cA54e717a2BFe1F32b566b` | |
+| Aave faucet | `0xD9145b5F45Ad4519c7ACcD6E0A4A82e83bB8A6Dc` | `mint(token,to,amount)` permissionless, **per-recipient timelock** |
 | WETH | `0x4200000000000000000000000000000000000006` | canonical L2 |
-| USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | Circle |
-| aWETH | `0x73a5bB60b0B0fc35710DDc0ea9c407031E31Bdbb` | verified |
-| aUSDC | — | USDC not registered as a reserve on this pool |
-| Chainlink ETH/USD | `0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1` | |
-| Chainlink USDC/USD | `0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165` | |
+| USDC (Aave reserve) | `0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f` | 6dp |
+| USDT (Aave reserve) | `0x0a215D8ba66387DCA84B284D18c3B4ec3de6E54a` | 6dp |
+| aWETH | `0x73a5bB60b0B0fc35710DDc0ea9c407031E31Bdbb` | |
+| aUSDC | `0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC` | |
+| aUSDT | `0xcE3CAae5Ed17A7AafCEEbc897DE843fA6CC0c018` | |
+
+**SuperPosition app stack (our deploy — Sourcify `exact_match`, 11/11)**
+
+| Contract | Address |
+|---|---|
+| Aqua (ours) | `0x06DC4edCF4F3ABdFa65Cc4fD58AB459B5ff20F9e` |
+| MakerConfig | `0x0196eeF216fAF47DE34bcbEd5fB1ab4f97A932ee` |
+| SuperPositionVMRouter | `0x4fefc5D38eE27f09F68484574A3B4AAC914d4097` |
+| AaveV3Adapter | `0x56BE9DC69c798BC8B7567958b1B45f4b6e4502eb` |
+| ERC4626Adapter (USDC/USDT vaults) | `0x0f47Ca0065B7f0Ff00eEDf6D92D977389Aa8CcbF` |
+| spUSDC (Aave-backed ERC-4626) | `0x126b97C6AF4748118504A993e97EbAA1cb863576` |
+| spUSDT (Aave-backed ERC-4626) | `0x682E0DBEF9Ce3487b06F961A8667fBdcb2093396` |
+| SuperpositionHook (v4, USDT/USDC) | `0x2F6bA013a29967F3A638887f8BefB18424658Ac0` |
+| SuperpositionUniAdapter | `0x81e92e910B978e5F3865E4E815660725662EE236` |
+| OrderBuilder | `0x7a8F11c29FD46e21aA70638f8f6BA62777cf920C` |
+| HookLpHelper | `0x24F0A572A6A7Ae73322aB5B19Ee83d50343A5D23` |
+| SepoliaFaucetBatch | `0xbe135721492C6525cAf47454aEEFc37B378bf895` |
+| poolId | `0x61ba18cc22f164da8266f5335986bc2d38edd40a8e997c413376b70ea2dc98bf` |
+
+Deploy script: `foundry/script/base-sepolia/DeployBaseSepolia.s.sol` (deploys our Aqua, the stack,
+the v4 hook via CREATE2, and the testnet helpers). No official StataToken (waToken) factory on
+Base Sepolia — the ERC-4626 wrapper is our `Aave4626Vault` (holds **real** aTokens; USDC/USDT/WETH
+reserves are **not** supply-capped here).
+
+**Live swaps (demo deployment, same bytecode)**
+
+| Demo | Tx |
+|---|---|
+| USDC→WETH · `ship` | [`0x8d7ea4…`](https://sepolia.basescan.org/tx/0x8d7ea40c376dfa76e1748b4bfb9a6623dff6839714d8797aa9b68611309f595a) |
+| USDC→WETH · `swap` | [`0xc5871d…`](https://sepolia.basescan.org/tx/0xc5871d8b99e98fc1fb7311f89050568678f6bbeef87ac00294e6bcc1fb583f16) |
+| USDC→USDT · `ship` | [`0xa1991f…`](https://sepolia.basescan.org/tx/0xa1991fb8f22245622d2c5c07b2e58104f3e291c000b5ff14ee8d8fa199d293dd) |
+| USDC→USDT · `swap` | [`0x91db65…`](https://sepolia.basescan.org/tx/0x91db65a7c83a2ef15a1a3071483e7a0ee542e6c4080b9f15ccbc97e62f553526) |
+
+
 
 ## Arbitrum Sepolia (testnet)
 

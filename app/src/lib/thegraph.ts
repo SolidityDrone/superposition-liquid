@@ -84,6 +84,13 @@ type Market = {
   liquidationThreshold?: string | null;
   canUseAsCollateral?: boolean | null;
   canBorrowFrom?: boolean | null;
+  reserveFactor?: string | null;
+  cumulativeLiquidateUSD?: string | null;
+  liquidationCount?: number | null;
+  cumulativeTotalRevenueUSD?: string | null;
+  transactionCount?: number | null;
+  cumulativeUniqueBorrowers?: number | null;
+  positionCount?: number | null;
   rates: MarketRate[];
   protocol: { name: string; slug: string };
 };
@@ -105,6 +112,13 @@ export type YieldResult = {
   spreadBps: number; // borrow APY - supply APY
   ltv: number | null; // maximumLTV (%)
   liqThreshold: number | null; // liquidation threshold (%)
+  reserveFactor: number | null; // %
+  liqUSD: string; // cumulative liquidations (USD)
+  liqCount: number;
+  revenueUSD: string; // cumulative total revenue (USD)
+  txCount: number;
+  borrowers: number;
+  positions: number;
   history: number[]; // supply-rate bps, oldest -> newest (may be empty)
 };
 
@@ -119,7 +133,9 @@ const FIELDS_BASE = `
   rates { rate side type }
   protocol { name slug }`;
 const FIELDS_RISK = `
-  maximumLTV liquidationThreshold canUseAsCollateral canBorrowFrom`;
+  maximumLTV liquidationThreshold canUseAsCollateral canBorrowFrom
+  reserveFactor cumulativeLiquidateUSD liquidationCount cumulativeTotalRevenueUSD
+  transactionCount cumulativeUniqueBorrowers positionCount`;
 
 const marketQuery = (extra: string) => `
   query LendingMarkets($token: String!, $first: Int!) {
@@ -207,6 +223,7 @@ function parseMarket(sub: SubgraphEntry, m: Market): YieldResult {
   const borrowed = parseFloat(m.totalBorrowBalanceUSD || "0");
   const ltvRaw = m.maximumLTV != null ? parseFloat(m.maximumLTV) : NaN;
   const liqRaw = m.liquidationThreshold != null ? parseFloat(m.liquidationThreshold) : NaN;
+  const rfRaw = m.reserveFactor != null ? parseFloat(m.reserveFactor) : NaN;
   return {
     protocol: sub.name,
     slug: sub.slug,
@@ -224,6 +241,13 @@ function parseMarket(sub: SubgraphEntry, m: Market): YieldResult {
     spreadBps: borrow - supply,
     ltv: Number.isNaN(ltvRaw) ? null : ltvRaw,
     liqThreshold: Number.isNaN(liqRaw) ? null : liqRaw,
+    reserveFactor: Number.isNaN(rfRaw) ? null : rfRaw * 100,
+    liqUSD: m.cumulativeLiquidateUSD ?? "0",
+    liqCount: Number(m.liquidationCount ?? 0),
+    revenueUSD: m.cumulativeTotalRevenueUSD ?? "0",
+    txCount: Number(m.transactionCount ?? 0),
+    borrowers: Number(m.cumulativeUniqueBorrowers ?? 0),
+    positions: Number(m.positionCount ?? 0),
     history: [],
   };
 }

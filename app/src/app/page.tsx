@@ -253,10 +253,10 @@ export default function Page() {
               ))}
             </div>
             <div className="diagram-head">
-              <div className="diagram-title">The hook, end to end — data flow + ERC-1155 LP</div>
+              <div className="diagram-title">The hook, end to end — a USDC/USDT swap</div>
               <div className="diagram-sub">
-                The router pulls through the hook; every tick range is an ERC-1155 bucket
-                the maker approves the router to operate.
+                The taker pays USDC and receives USDT; the maker&apos;s capital stays in
+                ERC-4626 vaults, one ERC-1155 bucket per tick range.
               </div>
             </div>
             <HookDiagram />

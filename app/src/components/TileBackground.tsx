@@ -21,7 +21,8 @@ import { useEffect, useRef } from "react";
 const TILE = 10;
 const GAP = 0;
 const PITCH = TILE + GAP;
-const MAX_RIPPLES = 9;
+const MAX_RIPPLES = 6;
+const FRAME_MS = 1000 / 30; // ambient surface: 30fps is enough, halves the paint
 
 // 4x4 ordered-dither matrix (Bayer) — gives the checkerboard band transitions
 const BAYER = [
@@ -67,7 +68,7 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
     let rows = 0;
     let ripples: Ripple[] = [];
     let lastPointerRipple = 0;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = 1; // pixel-art surface: render at 1x, the CSS grid keeps it crisp
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // virtual clock: under reduced-motion time flows at 0.3x (calm drift)
@@ -160,6 +161,7 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
     // ---- start "wet": waves already travelling ----
     resize();
     let last = performance.now();
+    let lastDraw = 0;
     let vt = 0; // virtual clock (ms), advances at timeScale
     ripples = [
       { x: w * 0.8, y: h * 0.25, t0: -900, amp: 1.4 },
@@ -172,11 +174,16 @@ export default function TileBackground({ opacity = 1 }: { opacity?: number }) {
         vt += (now - last) * timeScale;
         last = now;
 
-        ripples = ripples.filter((rp) => vt - rp.t0 < 3200);
-        // the surface is never still: as soon as ripples fade below the
-        // threshold, fresh ones spawn — ripples layer over the waves forever
-        if (ripples.length < 4) spawnRandom();
-        draw(vt / 1000);
+        // ~30fps and pause when the tab is hidden: the ambient surface does not
+        // need 60fps, and this keeps scrolling smooth on large viewports.
+        if (!document.hidden && now - lastDraw >= FRAME_MS) {
+          lastDraw = now;
+          ripples = ripples.filter((rp) => vt - rp.t0 < 3200);
+          // the surface is never still: as soon as ripples fade below the
+          // threshold, fresh ones spawn — ripples layer over the waves forever
+          if (ripples.length < 3) spawnRandom();
+          draw(vt / 1000);
+        }
       } catch (err) {
         // never let one bad frame kill the loop
         console.warn("[aqua-bg] frame error", err);

@@ -1834,3 +1834,41 @@ body::before, body::after { display: none !important; }
 
 /* hook data-flow diagram: same shell, slightly shorter frame */
 .diagram--hook { aspect-ratio: 960 / 520; }
+
+/* breathing room for standalone diagram headings (hook section) */
+.diagram-head { margin: 40px 0 0; padding: 22px 24px; border-radius: 16px; }
+
+/* ===== performance: keep the CRT look, make it compositor-only ===== */
+.crt-overlay {
+  contain: strict;
+  transform: translateZ(0);
+  animation: none !important;               /* drop the full-screen opacity flicker */
+  background-image:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.30) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 0, 0, 0.05) 0 1px, rgba(0, 255, 0, 0.03) 1px 2px, rgba(0, 0, 255, 0.05) 2px 3px),
+    radial-gradient(130% 130% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%) !important;
+  background-size: 100% 3px, 3px 100%, 100% 100% !important;
+}
+/* snow: coarser and moved with transform -> no per-frame repaint */
+.crt-overlay::after {
+  inset: -25% !important;
+  opacity: .08 !important;
+  background-size: 8px 8px !important;
+  animation: tvSnowT .55s steps(6) infinite, tvFlash 3.6s steps(1) infinite !important;
+  will-change: transform, opacity;
+}
+@keyframes tvSnowT {
+  0%   { transform: translate3d(0, 0, 0); }
+  20%  { transform: translate3d(-4px, 3px, 0); }
+  40%  { transform: translate3d(3px, -4px, 0); }
+  60%  { transform: translate3d(-3px, -3px, 0); }
+  80%  { transform: translate3d(4px, 2px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crt-overlay { display: none !important; }
+}
+
+/* hook diagram: token pair chips inside a node + full-height frame */
+.d-pair { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; }
+.diagram--hook { aspect-ratio: 960 / 560; }

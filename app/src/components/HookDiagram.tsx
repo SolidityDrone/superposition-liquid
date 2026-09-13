@@ -1,48 +1,70 @@
 "use client";
 
+import { TokenIcon } from "@/components/icons";
+import { AaveLogo } from "@/components/logos";
+
 /**
- * Same visual language as FillDiagram, but for the Uniswap v4 hook:
- * the DATA workflow (calldata -> pullPlan -> vault redeem -> fill -> revenue)
- * plus the ERC-1155 bucket shuttle that authorises the LP operations on the
- * SwapVM (maker approves the router as operator, one id per tick range).
+ * The Uniswap v4 hook, as a swap — the real flow of funds.
  *
- * Orthogonal loop through six actors, drawn with the shared .flow-line /
- * .d-node primitives; two packets ride it — a cyan DATA packet on the full
- * loop and a magenta 1155 packet shuttling maker <-> router.
+ * Layout mirrors a trade: the maker's ERC-1155 buckets back the pool, the Aqua
+ * router drives the fill, and the two pool tokens (USDC / USDT) actually move:
+ *   - USDC the taker PAYS   : taker -> router -> hook -> ERC-4626 vault
+ *   - USDT the taker RECEIVES: vault -> hook -> router -> taker
+ * while the relayed calldata reaches the router and the maker's ERC-1155
+ * buckets back the pool (one id per tick range).
  */
 
-const VB = { w: 960, h: 520 };
+const VB = { w: 960, h: 560 };
 
-const NODES = [
-  { key: "maker", x: 480, y: 66, name: "MAKER", dot: "#e6f0fa", big: true },
-  { key: "resolvers", x: 840, y: 250, name: "RESOLVERS", dot: "#4cc2ff" },
-  { key: "router", x: 480, y: 250, name: "AQUA ROUTER", dot: "#4cc2ff", hero: true },
-  { key: "hook", x: 135, y: 250, name: "UNISWAP V4 HOOK", dot: "#4cc2ff", hero: true },
-  { key: "vault", x: 135, y: 430, name: "ERC-4626 · waToken", dot: "#b6509e" },
-  { key: "taker", x: 480, y: 430, name: "TAKER", dot: "#8ba3b8", big: true },
+type Node = {
+  key: string;
+  x: number;
+  y: number;
+  name: string;
+  dot: string;
+  big?: boolean;
+  hero?: boolean;
+  pair?: boolean;
+};
+
+const NODES: Node[] = [
+  { key: "maker", x: 480, y: 64, name: "MAKER", dot: "#e6f0fa", big: true },
+  { key: "resolvers", x: 840, y: 300, name: "RESOLVERS", dot: "#4cc2ff" },
+  { key: "router", x: 480, y: 300, name: "AQUA ROUTER", dot: "#4cc2ff", hero: true },
+  { key: "hook", x: 150, y: 300, name: "UNISWAP V4 HOOK", dot: "#4cc2ff", hero: true, pair: true },
+  { key: "vault", x: 150, y: 480, name: "AAVE · waToken", dot: "#b6509e" },
+  { key: "taker", x: 480, y: 480, name: "TAKER", dot: "#8ba3b8", big: true },
 ];
 
-const LOOP =
-  "M 840 250 L 480 250 L 135 250 L 135 430 L 480 430 L 480 66 L 840 66 L 840 250";
-
+/* straight money lanes (arrows), with a label placed in open space */
 const LANES = [
-  { d: "M 840 250 L 480 250", x: 662, y: 238, t: "relayed calldata" },
-  { d: "M 480 250 L 135 250", x: 300, y: 238, t: "pullPlan() · ILendingAdapter" },
-  { d: "M 135 250 L 135 430", x: 147, y: 356, t: "redeem aToken → underlying" },
-  { d: "M 135 430 L 480 430", x: 300, y: 418, t: "fill delivered to taker" },
-  { d: "M 480 430 L 480 66", x: 492, y: 372, t: "revenue re-deposited" },
-  { d: "M 480 66 L 840 66 L 840 250", x: 662, y: 54, t: "ERC-1155 bucket shares" },
+  { d: "M 840 300 L 480 300", x: 662, y: 288, t: "relayed calldata" },
+  { d: "M 480 300 L 150 300", x: 315, y: 288, t: "swap in the v4 curve" },
+  { d: "M 150 300 L 150 480", x: 162, y: 402, t: "aToken ⇄ underlying" },
+  { d: "M 480 300 L 480 480", x: 492, y: 402, t: "fill delivered to taker" },
+  { d: "M 480 64 L 480 300", x: 468, y: 200, t: "ERC-1155 buckets", anchor: "end" as const },
 ];
+
+/* the two token coins travel the swap: USDC paid in, USDT paid out */
+const USDC_PATH = "M 480 480 L 480 300 L 150 300 L 150 480";
+const USDT_PATH = "M 150 480 L 150 300 L 480 300 L 480 480";
+
+function Coin({ symbol, size = 26 }: { symbol: string; size?: number }) {
+  return (
+    <>
+      <circle r={size / 2 + 4} fill="#0e1824" stroke="#2e4a63" strokeWidth="1" />
+      <g transform={`translate(${-size / 2} ${-size / 2})`}>
+        <TokenIcon symbol={symbol} size={size} />
+      </g>
+    </>
+  );
+}
 
 export default function HookDiagram() {
   return (
     <div className="diagram-wrap">
       <div className="diagram diagram--hook">
-        <svg
-          className="d-svg"
-          viewBox={`0 0 ${VB.w} ${VB.h}`}
-          preserveAspectRatio="xMidYMid meet"
-        >
+        <svg className="d-svg" viewBox={`0 0 ${VB.w} ${VB.h}`} preserveAspectRatio="xMidYMid meet">
           <defs>
             <marker
               id="h-arrow"
@@ -58,12 +80,7 @@ export default function HookDiagram() {
           </defs>
 
           {LANES.map((l, i) => (
-            <path
-              key={`ln${i}`}
-              className="flow-line on"
-              d={l.d}
-              markerEnd="url(#h-arrow)"
-            />
+            <path key={`ln${i}`} className="flow-line on" d={l.d} markerEnd="url(#h-arrow)" />
           ))}
 
           {LANES.map((l, i) => (
@@ -74,76 +91,44 @@ export default function HookDiagram() {
               fontSize="9.5"
               fontFamily="var(--mono)"
               fill="#566b80"
+              textAnchor={l.anchor ?? "start"}
             >
               {l.t}
             </text>
           ))}
 
-          {/* DATA packet: runs the whole hook loop forever */}
+          {/* the paid token: USDC (taker -> router -> hook -> vault) */}
           <g>
-            <rect
-              x="-15"
-              y="-9"
-              width="30"
-              height="18"
-              rx="5"
-              fill="#0e1824"
-              stroke="#4cc2ff"
-              strokeWidth="1.2"
-            />
-            <text
-              textAnchor="middle"
-              y="3.4"
-              fontSize="8.5"
-              fontFamily="var(--mono)"
-              fontWeight="700"
-              fill="#4cc2ff"
-            >
-              DATA
-            </text>
-            <animateMotion dur="11s" repeatCount="indefinite" path={LOOP} />
+            <Coin symbol="USDC" />
+            <animateMotion dur="9s" repeatCount="indefinite" path={USDC_PATH} />
+            <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;1;1;0" keyTimes="0;0.12;0.82;1" />
           </g>
 
-          {/* ERC-1155 shuttle: maker <-> router (bucket shares / operator) */}
+          {/* the delivered token: USDT (vault -> hook -> router -> taker) */}
           <g>
-            <rect
-              x="-19"
-              y="-9"
-              width="38"
-              height="18"
-              rx="5"
-              fill="#0e1824"
-              stroke="#ff2bd6"
-              strokeWidth="1.2"
-            />
-            <text
-              textAnchor="middle"
-              y="3.4"
-              fontSize="8.5"
-              fontFamily="var(--mono)"
-              fontWeight="700"
-              fill="#ff2bd6"
-            >
-              1155
-            </text>
-            <animateMotion
-              dur="4.2s"
-              repeatCount="indefinite"
-              path="M 480 96 L 480 226 L 480 96"
-            />
+            <Coin symbol="USDT" />
+            <animateMotion dur="9s" repeatCount="indefinite" path={USDT_PATH} />
+            <animate attributeName="opacity" dur="9s" repeatCount="indefinite" values="0;1;1;0" keyTimes="0;0.12;0.82;1" />
           </g>
         </svg>
 
         {NODES.map((n) => (
           <div
-            className={
-              n.hero ? "d-node d-node--hero" : n.big ? "d-node d-node--big" : "d-node"
-            }
+            className={n.hero ? "d-node d-node--hero" : n.big ? "d-node d-node--big" : "d-node"}
             key={n.key}
             style={{ left: `${(n.x / VB.w) * 100}%`, top: `${(n.y / VB.h) * 100}%` }}
           >
             <span className="d-dot" style={{ background: n.dot }} />
-            <div className="n-name">{n.name}</div>
+            <div className="n-name">
+              {n.key === "vault" && <AaveLogo size={16} />}
+              {n.name}
+              {n.pair && (
+                <span className="d-pair">
+                  <TokenIcon symbol="USDC" size={16} />
+                  <TokenIcon symbol="USDT" size={16} />
+                </span>
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -7,7 +7,7 @@ import { formatUnits, parseUnits, maxUint256, type Address } from "viem";
 import TileBackground from "@/components/TileBackground";
 import { TokenIcon, ProtocolIcon, TokenLabel, InfoIcon } from "@/components/icons";
 import { Dropdown } from "@/components/Dropdown";
-import YieldLeaderboard from "@/components/YieldLeaderboard";
+import LendingIntel from "@/components/LendingIntel";
 import SuperpositionSubgraph from "@/components/SuperpositionSubgraph";
 import PoolCurve from "@/components/PoolCurve";
 import { OneinchMono, Uniswap } from "react-web3-icons/dex";
@@ -592,7 +592,7 @@ export default function ConsolePage() {
 
         {/* --- the graph: standardized cross-protocol data --- */}
         <div className="dash">
-          <YieldLeaderboard />
+          <LendingIntel />
         </div>
 
         {/* --- our own subgraph (Studio, keyless) --- */}
